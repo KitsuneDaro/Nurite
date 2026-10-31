@@ -4,22 +4,7 @@ export const brushVertexShader = `
   }
 `
 
-export const brushFragmentShader = `
-  uniform vec2 uStart;
-  uniform vec2 uEnd;
-  uniform vec2 uPreviousDirection;
-  uniform vec2 uVelocity;
-  uniform vec2 uAcceleration;
-  uniform float uBrushSize;
-  uniform int uShape;
-  uniform int uOutputType;
-  uniform int uStrokeIndex;
-  uniform int uSegmentIndex;
-  uniform float uFollowDirection;
-  uniform vec3 uColor;
-  uniform vec2 uResolution;
-  uniform sampler2D uMetadataTexture;
-
+const brushCoverageFunctions = `
   bool coversRoundBrush(
     vec2 relativePoint,
     vec2 tangent,
@@ -142,7 +127,120 @@ export const brushFragmentShader = `
     }
     return covered;
   }
+`
 
+const segmentMetadataFunctions = `
+  uniform int uStrokeId;
+  uniform int uSegmentId;
+  uniform vec2 uResolution;
+  uniform sampler2D uMetadataTexture;
+
+  vec4 getSegmentMetadataKey() {
+    float strokeLow = mod(float(uStrokeId), 256.0);
+    float strokeMiddle = mod(floor(float(uStrokeId) / 256.0), 256.0);
+    float strokeHighAndSegmentLow = mod(floor(float(uStrokeId) / 65536.0), 16.0)
+      + mod(float(uSegmentId), 16.0) * 16.0;
+    float segmentHigh = floor(float(uSegmentId) / 16.0);
+    return vec4(
+      strokeLow,
+      strokeMiddle,
+      strokeHighAndSegmentLow,
+      segmentHigh
+    ) / 255.0;
+  }
+
+  bool isCurrentSegmentCovered() {
+    vec4 storedMetadata = texture2D(
+      uMetadataTexture,
+      gl_FragCoord.xy / uResolution
+    );
+    return all(lessThanEqual(
+      abs(storedMetadata - getSegmentMetadataKey()),
+      vec4(0.5 / 255.0)
+    ));
+  }
+`
+
+export const brushMetadataFragmentShader = `
+  uniform vec2 uStart;
+  uniform vec2 uEnd;
+  uniform vec2 uPreviousDirection;
+  uniform float uBrushSize;
+  uniform int uShape;
+  uniform int uStrokeId;
+  uniform int uSegmentId;
+  uniform float uFollowDirection;
+  uniform vec2 uResolution;
+
+  ${brushCoverageFunctions}
+
+  void main() {
+    vec2 point = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
+    vec2 segment = uEnd - uStart;
+    float segmentLength = length(segment);
+    vec2 tangent = segmentLength > 0.0 ? segment / segmentLength : vec2(1.0, 0.0);
+    vec2 normal = vec2(-tangent.y, tangent.x);
+    vec2 relativePoint = point - uStart;
+    float halfSize = uBrushSize * 0.5;
+    bool covered = false;
+
+    if (uShape == 0) {
+      covered = coversRoundBrush(
+        relativePoint, tangent, uPreviousDirection, segmentLength, halfSize
+      );
+    } else if (uShape == 1) {
+      covered = coversFlatBrush(
+        relativePoint,
+        segment,
+        tangent,
+        normal,
+        uPreviousDirection,
+        segmentLength,
+        halfSize,
+        uBrushSize,
+        uFollowDirection
+      );
+    } else {
+      covered = coversSquareBrush(
+        point,
+        uStart,
+        relativePoint,
+        tangent,
+        normal,
+        uPreviousDirection,
+        segmentLength,
+        halfSize,
+        uFollowDirection
+      );
+    }
+
+    if (!covered) discard;
+
+    float strokeLow = mod(float(uStrokeId), 256.0);
+    float strokeMiddle = mod(floor(float(uStrokeId) / 256.0), 256.0);
+    float strokeHighAndSegmentLow = mod(floor(float(uStrokeId) / 65536.0), 16.0)
+      + mod(float(uSegmentId), 16.0) * 16.0;
+    float segmentHigh = floor(float(uSegmentId) / 16.0);
+    gl_FragColor = vec4(
+      strokeLow,
+      strokeMiddle,
+      strokeHighAndSegmentLow,
+      segmentHigh
+    ) / 255.0;
+  }
+`
+
+export const brushColorFragmentShader = `
+  ${segmentMetadataFunctions}
+  uniform vec3 uColor;
+
+  void main() {
+    if (!isCurrentSegmentCovered()) discard;
+    gl_FragColor = vec4(uColor, 1.0);
+  }
+`
+
+const brushEdgeDistanceFunctions = `
   float distanceFromRoundBrushEdge(
     vec2 relativePoint,
     vec2 tangent,
@@ -240,6 +338,7 @@ export const brushFragmentShader = `
     vec2 segment,
     vec2 tangent,
     vec2 normal,
+    vec2 previousDirection,
     float segmentLength,
     float halfSize,
     float brushSize,
@@ -250,14 +349,8 @@ export const brushFragmentShader = `
         relativePoint, segment, normal, halfSize, brushSize
       );
     }
-
     return distanceFromDirectionalFlatBrushEdge(
-      relativePoint,
-      segment,
-      normal,
-      uPreviousDirection,
-      segmentLength,
-      halfSize
+      relativePoint, segment, normal, previousDirection, segmentLength, halfSize
     );
   }
 
@@ -291,8 +384,22 @@ export const brushFragmentShader = `
     float normalMargin = normalExtent - abs(dot(relativePoint, normal));
     return max(0.0, min(horizontalMargin, min(verticalMargin, normalMargin)));
   }
+`
+
+export const brushStateAFragmentShader = `
+  ${segmentMetadataFunctions}
+  uniform vec2 uStart;
+  uniform vec2 uEnd;
+  uniform vec2 uPreviousDirection;
+  uniform float uBrushSize;
+  uniform int uShape;
+  uniform float uFollowDirection;
+
+  ${brushEdgeDistanceFunctions}
 
   void main() {
+    if (!isCurrentSegmentCovered()) discard;
+
     vec2 point = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
     vec2 segment = uEnd - uStart;
     float segmentLength = length(segment);
@@ -300,113 +407,61 @@ export const brushFragmentShader = `
     vec2 normal = vec2(-tangent.y, tangent.x);
     vec2 relativePoint = point - uStart;
     float halfSize = uBrushSize * 0.5;
-    vec2 previousDirection = uPreviousDirection;
-    float followDirection = uFollowDirection;
-    bool covered = false;
+    float edgeDistance = 0.0;
 
     if (uShape == 0) {
-      covered = coversRoundBrush(
-        relativePoint, tangent, previousDirection, segmentLength, halfSize
+      edgeDistance = distanceFromRoundBrushEdge(
+        relativePoint, tangent, segmentLength, halfSize
       );
     } else if (uShape == 1) {
-      covered = coversFlatBrush(
+      edgeDistance = distanceFromFlatBrushEdge(
         relativePoint,
         segment,
         tangent,
         normal,
-        previousDirection,
+        uPreviousDirection,
         segmentLength,
         halfSize,
         uBrushSize,
-        followDirection
+        uFollowDirection
       );
     } else {
-      covered = coversSquareBrush(
-        point,
-        uStart,
+      edgeDistance = distanceFromSquareBrushEdge(
         relativePoint,
+        segment,
         tangent,
         normal,
-        previousDirection,
         segmentLength,
         halfSize,
-        followDirection
+        uFollowDirection
       );
     }
 
-    if (!covered) discard;
+    float endX = floor(clamp(uEnd.x, 0.0, 1023.0) + 0.5);
+    float endY = floor(clamp(uEnd.y, 0.0, 1023.0) + 0.5);
+    float distanceValue = floor(clamp(edgeDistance, 0.0, 63.0) + 0.5);
+    float brushSize = floor(clamp(uBrushSize, 0.0, 63.0) + 0.5);
+    float byte0 = mod(endX, 256.0);
+    float byte1 = floor(endX / 256.0) + mod(endY, 64.0) * 4.0;
+    float byte2 = floor(endY / 64.0) + mod(distanceValue, 16.0) * 16.0;
+    float byte3 = floor(distanceValue / 16.0) + brushSize * 4.0;
+    gl_FragColor = vec4(byte0, byte1, byte2, byte3) / 255.0;
+  }
+`
 
-    float strokeLow = mod(float(uStrokeIndex), 256.0);
-    float strokeMiddle = mod(floor(float(uStrokeIndex) / 256.0), 256.0);
-    float strokeHighAndFrameLow = mod(floor(float(uStrokeIndex) / 65536.0), 16.0)
-      + mod(float(uSegmentIndex), 16.0) * 16.0;
-    float segmentHigh = floor(float(uSegmentIndex) / 16.0);
-    vec4 metadataKey = vec4(
-      strokeLow,
-      strokeMiddle,
-      strokeHighAndFrameLow,
-      segmentHigh
-    ) / 255.0;
+export const brushStateBFragmentShader = `
+  ${segmentMetadataFunctions}
+  uniform vec2 uVelocity;
+  uniform vec2 uAcceleration;
 
-    if (uOutputType != 0) {
-      vec4 storedMetadata = texture2D(uMetadataTexture, gl_FragCoord.xy / uResolution);
-      if (any(greaterThan(abs(storedMetadata - metadataKey), vec4(0.5 / 255.0)))) {
-        discard;
-      }
-    }
-
-    if (uOutputType == 0) {
-      gl_FragColor = metadataKey;
-    } else if (uOutputType == 1) {
-      gl_FragColor = vec4(uColor, 1.0);
-    } else if (uOutputType == 2) {
-      float edgeDistance = 0.0;
-      if (uShape == 0) {
-        edgeDistance = distanceFromRoundBrushEdge(
-          relativePoint, tangent, segmentLength, halfSize
-        );
-      } else if (uShape == 1) {
-        edgeDistance = distanceFromFlatBrushEdge(
-          relativePoint,
-          segment,
-          tangent,
-          normal,
-          segmentLength,
-          halfSize,
-          uBrushSize,
-          followDirection
-        );
-      } else {
-        edgeDistance = distanceFromSquareBrushEdge(
-          relativePoint,
-          segment,
-          tangent,
-          normal,
-          segmentLength,
-          halfSize,
-          followDirection
-        );
-      }
-
-      float endX = floor(clamp(uEnd.x, 0.0, 1023.0) + 0.5);
-      float endY = floor(clamp(uEnd.y, 0.0, 1023.0) + 0.5);
-      float distanceValue = floor(clamp(edgeDistance, 0.0, 63.0) + 0.5);
-      float brushSize = floor(clamp(uBrushSize, 0.0, 63.0) + 0.5);
-      float byte0 = mod(endX, 256.0);
-      float byte1 = floor(endX / 256.0) + mod(endY, 64.0) * 4.0;
-      float byte2 = floor(endY / 64.0) + mod(distanceValue, 16.0) * 16.0;
-      float byte3 = floor(distanceValue / 16.0) + brushSize * 4.0;
-      gl_FragColor = vec4(
-        byte0, byte1, byte2, byte3
-      ) / 255.0;
-    } else {
-      vec2 velocity = clamp(uVelocity, vec2(-128.0), vec2(127.0));
-      vec2 acceleration = clamp(uAcceleration, vec2(-128.0), vec2(127.0));
-      gl_FragColor = vec4(
-        (velocity + 128.0) / 255.0,
-        (acceleration + 128.0) / 255.0
-      );
-    }
+  void main() {
+    if (!isCurrentSegmentCovered()) discard;
+    vec2 velocity = clamp(uVelocity, vec2(-128.0), vec2(127.0));
+    vec2 acceleration = clamp(uAcceleration, vec2(-128.0), vec2(127.0));
+    gl_FragColor = vec4(
+      (velocity + 128.0) / 255.0,
+      (acceleration + 128.0) / 255.0
+    );
   }
 `
 
@@ -421,11 +476,11 @@ export const textureDebugFragmentShader = `
     float debugValue = 0.0;
 
     if (uDebugField == 0) {
-      float strokeIndex = bytes.r + bytes.g * 256.0 + mod(bytes.b, 16.0) * 65536.0;
-      debugValue = log2(strokeIndex + 1.0) / 20.0;
+      float strokeId = bytes.r + bytes.g * 256.0 + mod(bytes.b, 16.0) * 65536.0;
+      debugValue = log2(strokeId + 1.0) / 20.0;
     } else if (uDebugField == 1) {
-      float segmentIndex = floor(bytes.b / 16.0) + bytes.a * 16.0;
-      debugValue = segmentIndex / 4095.0;
+      float segmentId = floor(bytes.b / 16.0) + bytes.a * 16.0;
+      debugValue = segmentId / 4095.0;
     } else if (uDebugField >= 2 && uDebugField <= 5) {
       int channel = uDebugField - 2;
       debugValue = channel == 0 ? value.r

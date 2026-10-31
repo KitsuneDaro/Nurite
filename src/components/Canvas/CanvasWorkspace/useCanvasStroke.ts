@@ -35,9 +35,9 @@ export function useCanvasStroke({
   const pendingPointsRef = useRef<DrawingPoint[]>([])
   const lastDrawnPointRef = useRef<DrawingPoint | null>(null)
   const previousDirectionRef = useRef<DrawingPoint | null>(null)
-  const nextStrokeIndexRef = useRef(1)
-  const nextSegmentIndexRef = useRef(0)
-  const activeStrokeIndexRef = useRef(0)
+  const nextStrokeIdRef = useRef(1)
+  const nextSegmentIdRef = useRef(0)
+  const activeStrokeIdRef = useRef(0)
   const drawingFrameRef = useRef<number | null>(null)
   const drawingStyleRef = useRef<BrushStrokeStyle>({
     shape: brushShape,
@@ -98,13 +98,13 @@ export function useCanvasStroke({
     const processedSegmentCount = drawingRef.current?.drawFrame(
       segments,
       drawingStyleRef.current,
-      activeStrokeIndexRef.current,
-      nextSegmentIndexRef.current,
+      activeStrokeIdRef.current,
+      nextSegmentIdRef.current,
     ) ?? 0
-    nextSegmentIndexRef.current += processedSegmentCount
+    nextSegmentIdRef.current += processedSegmentCount
     pendingPointsRef.current = []
     lastDrawnPointRef.current = pending[pending.length - 1] ?? null
-    if (nextSegmentIndexRef.current >= MAX_STROKE_SEGMENTS) {
+    if (nextSegmentIdRef.current >= MAX_STROKE_SEGMENTS) {
       activePointerRef.current = null
       lastDrawnPointRef.current = null
       previousDirectionRef.current = null
@@ -152,16 +152,16 @@ export function useCanvasStroke({
     if (!canvasPoint?.inside) return
 
     flushPendingPoints()
-    if (nextStrokeIndexRef.current > 0xFFFFF) {
-      console.error('Canvas drawing has reached the metadata texture stroke-index limit.')
+    if (nextStrokeIdRef.current > 0xFFFFF) {
+      console.error('Canvas drawing has reached the metadata texture stroke-ID limit.')
       return
     }
     activePointerRef.current = pointerId
     lastDrawnPointRef.current = null
     previousDirectionRef.current = null
-    activeStrokeIndexRef.current = nextStrokeIndexRef.current
-    nextStrokeIndexRef.current += 1
-    nextSegmentIndexRef.current = 0
+    activeStrokeIdRef.current = nextStrokeIdRef.current
+    nextStrokeIdRef.current += 1
+    nextSegmentIdRef.current = 0
     pendingPointsRef.current = [canvasPoint.point]
     scheduleDrawingFrame()
   }, [flushPendingPoints, getCanvasPoint, scheduleDrawingFrame])

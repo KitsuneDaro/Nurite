@@ -20,8 +20,8 @@ export const TEXTURE_DEBUG_GROUPS = [
   {
     label: 'メタ情報',
     fields: [
-      { id: 'stroke-index', label: 'ストロークID', mode: 0, source: 'metadata' },
-      { id: 'segment-index', label: 'セグメント番号', mode: 1, source: 'metadata' },
+      { id: 'stroke-id', label: 'ストロークID', mode: 0, source: 'metadata' },
+      { id: 'segment-id', label: 'セグメントID', mode: 1, source: 'metadata' },
     ],
   },
   {
@@ -55,7 +55,7 @@ export const TEXTURE_DEBUG_GROUPS = [
 
 export type TextureDebugField = (typeof TEXTURE_DEBUG_GROUPS)[number]['fields'][number]['id']
 
-export const DEFAULT_TEXTURE_DEBUG_FIELD: TextureDebugField = 'stroke-index'
+export const DEFAULT_TEXTURE_DEBUG_FIELD: TextureDebugField = 'stroke-id'
 
 const debugFields: TextureDebugFieldDefinition[] = []
 for (const group of TEXTURE_DEBUG_GROUPS) {

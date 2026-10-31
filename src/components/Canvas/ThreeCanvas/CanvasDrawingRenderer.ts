@@ -1,7 +1,10 @@
 import * as THREE from 'three'
 import type { BrushStrokeStyle, DrawingPoint, DrawingSegment } from '../../../types'
 import {
-  brushFragmentShader,
+  brushColorFragmentShader,
+  brushMetadataFragmentShader,
+  brushStateAFragmentShader,
+  brushStateBFragmentShader,
   brushVertexShader,
   textureDebugFragmentShader,
   textureDebugVertexShader,
@@ -40,13 +43,25 @@ function createRenderTarget(type: TextureDataType = THREE.UnsignedByteType) {
   return target
 }
 
+function createMetadataMatchUniforms(metadataTexture: THREE.Texture) {
+  return {
+    uStrokeId: { value: 0 },
+    uSegmentId: { value: 0 },
+    uResolution: { value: new THREE.Vector2(CANVAS_SIZE, CANVAS_SIZE) },
+    uMetadataTexture: { value: metadataTexture },
+  }
+}
+
 export class CanvasDrawingRenderer {
   private readonly renderer: THREE.WebGLRenderer
   private readonly metadataTarget: THREE.WebGLRenderTarget
   private readonly colorTarget: THREE.WebGLRenderTarget
   private readonly drawingStateTargetA: THREE.WebGLRenderTarget
   private readonly drawingStateTargetB: THREE.WebGLRenderTarget
-  private readonly brushMaterial: THREE.ShaderMaterial
+  private readonly metadataMaterial: THREE.ShaderMaterial
+  private readonly colorMaterial: THREE.ShaderMaterial
+  private readonly drawingStateMaterialA: THREE.ShaderMaterial
+  private readonly drawingStateMaterialB: THREE.ShaderMaterial
   private readonly brushMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
   private readonly brushScene: THREE.Scene
   private readonly brushCamera: THREE.OrthographicCamera
@@ -76,32 +91,72 @@ export class CanvasDrawingRenderer {
     this.drawingStateTargetA = createRenderTarget()
     this.drawingStateTargetB = createRenderTarget()
 
-    this.brushMaterial = new THREE.ShaderMaterial({
+    this.metadataMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uStart: { value: new THREE.Vector2() },
         uEnd: { value: new THREE.Vector2() },
         uPreviousDirection: { value: new THREE.Vector2() },
-        uVelocity: { value: new THREE.Vector2() },
-        uAcceleration: { value: new THREE.Vector2() },
         uBrushSize: { value: 1 },
         uShape: { value: 0 },
-        uOutputType: { value: 0 },
-        uStrokeIndex: { value: 0 },
-        uSegmentIndex: { value: 0 },
+        uStrokeId: { value: 0 },
+        uSegmentId: { value: 0 },
         uFollowDirection: { value: 0 },
-        uColor: { value: new THREE.Color('#000000') },
         uResolution: { value: new THREE.Vector2(CANVAS_SIZE, CANVAS_SIZE) },
-        uMetadataTexture: { value: this.colorTarget.texture },
       },
       vertexShader: brushVertexShader,
-      fragmentShader: brushFragmentShader,
+      fragmentShader: brushMetadataFragmentShader,
       transparent: false,
       depthTest: false,
       depthWrite: false,
       side: THREE.DoubleSide,
       toneMapped: false,
     })
-    this.brushMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.brushMaterial)
+    this.colorMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        ...createMetadataMatchUniforms(this.metadataTarget.texture),
+        uColor: { value: new THREE.Color('#000000') },
+      },
+      vertexShader: brushVertexShader,
+      fragmentShader: brushColorFragmentShader,
+      transparent: false,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    })
+    this.drawingStateMaterialA = new THREE.ShaderMaterial({
+      uniforms: {
+        ...createMetadataMatchUniforms(this.metadataTarget.texture),
+        uStart: { value: new THREE.Vector2() },
+        uEnd: { value: new THREE.Vector2() },
+        uPreviousDirection: { value: new THREE.Vector2() },
+        uBrushSize: { value: 1 },
+        uShape: { value: 0 },
+        uFollowDirection: { value: 0 },
+      },
+      vertexShader: brushVertexShader,
+      fragmentShader: brushStateAFragmentShader,
+      transparent: false,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    })
+    this.drawingStateMaterialB = new THREE.ShaderMaterial({
+      uniforms: {
+        ...createMetadataMatchUniforms(this.metadataTarget.texture),
+        uVelocity: { value: new THREE.Vector2() },
+        uAcceleration: { value: new THREE.Vector2() },
+      },
+      vertexShader: brushVertexShader,
+      fragmentShader: brushStateBFragmentShader,
+      transparent: false,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    })
+    this.brushMesh = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), this.metadataMaterial)
     this.brushMesh.frustumCulled = false
     this.brushScene = new THREE.Scene()
     this.brushScene.add(this.brushMesh)
@@ -209,8 +264,8 @@ export class CanvasDrawingRenderer {
   drawFrame(
     segments: readonly DrawingSegment[],
     style: BrushStrokeStyle,
-    strokeIndex: number,
-    startingSegmentIndex: number,
+    strokeId: number,
+    startingSegmentId: number,
   ) {
     if (this.disposed || segments.length === 0) return 0
 
@@ -218,40 +273,65 @@ export class CanvasDrawingRenderer {
     this.renderer.autoClear = false
     this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
     this.renderer.setScissorTest(true)
-    this.brushMaterial.uniforms.uBrushSize.value = Math.min(
+    const brushSize = Math.min(
       MAX_BRUSH_SIZE,
       Math.max(1, style.size),
     )
-    this.brushMaterial.uniforms.uShape.value =
-      style.shape === 'round' ? 0 : style.shape === 'flat' ? 1 : 2
-    this.brushMaterial.uniforms.uStrokeIndex.value = strokeIndex
-    this.brushMaterial.uniforms.uFollowDirection.value = style.followDirection ? 1 : 0
-    this.brushMaterial.uniforms.uColor.value.set(style.eraserEnabled ? '#FFFFFF' : style.color)
+    const shape = style.shape === 'round' ? 0 : style.shape === 'flat' ? 1 : 2
+    const followDirection = style.followDirection ? 1 : 0
+    this.metadataMaterial.uniforms.uBrushSize.value = brushSize
+    this.metadataMaterial.uniforms.uShape.value = shape
+    this.metadataMaterial.uniforms.uStrokeId.value = strokeId
+    this.metadataMaterial.uniforms.uFollowDirection.value = followDirection
+    this.drawingStateMaterialA.uniforms.uBrushSize.value = brushSize
+    this.drawingStateMaterialA.uniforms.uShape.value = shape
+    this.drawingStateMaterialA.uniforms.uFollowDirection.value = followDirection
+    this.colorMaterial.uniforms.uColor.value.set(
+      style.eraserEnabled ? '#FFFFFF' : style.color,
+    )
 
     let processedSegmentCount = 0
     for (const segment of segments) {
-      const segmentIndex = startingSegmentIndex + processedSegmentCount
-      if (segmentIndex >= MAX_STROKE_SEGMENTS) break
+      const segmentId = startingSegmentId + processedSegmentCount
+      if (segmentId >= MAX_STROKE_SEGMENTS) break
 
-      this.setSegmentUniforms(
+      if (!this.setSegmentUniforms(
         segment.start,
         segment.end,
-        Math.min(MAX_BRUSH_SIZE, Math.max(1, style.size)),
+        brushSize,
         segment.previousDirection,
+      )) continue
+
+      this.metadataMaterial.uniforms.uSegmentId.value = segmentId
+      for (const material of [
+        this.colorMaterial,
+        this.drawingStateMaterialA,
+        this.drawingStateMaterialB,
+      ]) {
+        material.uniforms.uStrokeId.value = strokeId
+        material.uniforms.uSegmentId.value = segmentId
+      }
+      this.drawingStateMaterialA.uniforms.uStart.value.copy(
+        this.metadataMaterial.uniforms.uStart.value,
       )
-      this.brushMaterial.uniforms.uSegmentIndex.value = segmentIndex
-      this.brushMaterial.uniforms.uVelocity.value.set(
+      this.drawingStateMaterialA.uniforms.uEnd.value.copy(
+        this.metadataMaterial.uniforms.uEnd.value,
+      )
+      this.drawingStateMaterialA.uniforms.uPreviousDirection.value.copy(
+        this.metadataMaterial.uniforms.uPreviousDirection.value,
+      )
+      this.drawingStateMaterialB.uniforms.uVelocity.value.set(
         segment.end.x - segment.start.x,
         segment.end.y - segment.start.y,
       )
-      this.brushMaterial.uniforms.uAcceleration.value.set(
+      this.drawingStateMaterialB.uniforms.uAcceleration.value.set(
         segment.end.x - segment.start.x - (segment.previousDirection?.x ?? 0),
         segment.end.y - segment.start.y - (segment.previousDirection?.y ?? 0),
       )
-      this.renderSegmentPass(this.metadataTarget, 0, this.colorTarget.texture)
-      this.renderSegmentPass(this.drawingStateTargetA, 2, this.metadataTarget.texture)
-      this.renderSegmentPass(this.drawingStateTargetB, 3, this.metadataTarget.texture)
-      this.renderSegmentPass(this.colorTarget, 1, this.metadataTarget.texture)
+      this.renderSegmentPass(this.metadataTarget, this.metadataMaterial)
+      this.renderSegmentPass(this.drawingStateTargetA, this.drawingStateMaterialA)
+      this.renderSegmentPass(this.drawingStateTargetB, this.drawingStateMaterialB)
+      this.renderSegmentPass(this.colorTarget, this.colorMaterial)
       processedSegmentCount += 1
     }
 
@@ -266,7 +346,10 @@ export class CanvasDrawingRenderer {
     this.disposed = true
     this.brushScene.remove(this.brushMesh)
     this.brushMesh.geometry.dispose()
-    this.brushMaterial.dispose()
+    this.metadataMaterial.dispose()
+    this.colorMaterial.dispose()
+    this.drawingStateMaterialA.dispose()
+    this.drawingStateMaterialB.dispose()
     this.displayScene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
       object.geometry.dispose()
@@ -314,37 +397,31 @@ export class CanvasDrawingRenderer {
     end: DrawingPoint,
     brushSize: number,
     previousDirection: DrawingPoint | null,
-  ) {
+  ): boolean {
     const boundsPadding = Math.ceil(brushSize) + 2
     const left = Math.max(0, Math.floor(Math.min(start.x, end.x) - boundsPadding))
     const right = Math.min(CANVAS_SIZE, Math.ceil(Math.max(start.x, end.x) + boundsPadding))
     const top = Math.max(0, Math.floor(Math.min(start.y, end.y) - boundsPadding))
     const bottom = Math.min(CANVAS_SIZE, Math.ceil(Math.max(start.y, end.y) + boundsPadding))
-    if (right <= left || bottom <= top) return
+    if (right <= left || bottom <= top) return false
 
-    this.brushMaterial.uniforms.uStart.value.set(start.x, start.y)
-    this.brushMaterial.uniforms.uEnd.value.set(end.x, end.y)
-    this.brushMaterial.uniforms.uPreviousDirection.value.set(
+    this.metadataMaterial.uniforms.uStart.value.set(start.x, start.y)
+    this.metadataMaterial.uniforms.uEnd.value.set(end.x, end.y)
+    this.metadataMaterial.uniforms.uPreviousDirection.value.set(
       previousDirection?.x ?? 0,
       previousDirection?.y ?? 0,
-    )
-    this.brushMaterial.uniforms.uVelocity.value.set(end.x - start.x, end.y - start.y)
-    this.brushMaterial.uniforms.uAcceleration.value.set(
-      end.x - start.x - (previousDirection?.x ?? 0),
-      end.y - start.y - (previousDirection?.y ?? 0),
     )
     this.brushMesh.position.set((left + right) / 2, (top + bottom) / 2, 0)
     this.brushMesh.scale.set(right - left, bottom - top, 1)
     this.renderer.setScissor(left, CANVAS_SIZE - bottom, right - left, bottom - top)
+    return true
   }
 
   private renderSegmentPass(
     target: THREE.WebGLRenderTarget,
-    outputType: number,
-    metadataTexture: THREE.Texture,
+    material: THREE.ShaderMaterial,
   ) {
-    this.brushMaterial.uniforms.uOutputType.value = outputType
-    this.brushMaterial.uniforms.uMetadataTexture.value = metadataTexture
+    this.brushMesh.material = material
     this.renderer.setRenderTarget(target)
     this.renderer.render(this.brushScene, this.brushCamera)
   }
