@@ -1,4 +1,4 @@
-import type { ToolOption } from '../types'
+import type { ToolOption } from '../../../types'
 import './ToolOptionGroup.css'
 
 type ToolOptionGroupProps<Id extends string> = {

@@ -1,5 +1,5 @@
 import { FolderOpen, Save } from 'lucide-react'
-import './ActionTile.css'
+import '../../Panel/ActionTile.css'
 import './FileControls.css'
 
 export function FileControls() {

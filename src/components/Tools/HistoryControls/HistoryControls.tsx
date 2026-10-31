@@ -1,5 +1,5 @@
 import { Redo2, Undo2 } from 'lucide-react'
-import './ActionTile.css'
+import '../../Panel/ActionTile.css'
 import './HistoryControls.css'
 
 export function HistoryControls() {

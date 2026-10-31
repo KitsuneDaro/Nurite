@@ -1,9 +1,9 @@
 import { PaintBucket } from 'lucide-react'
 import type { HslColor } from 'react-colorful'
-import { BrushSizeControl } from './BrushSizeControl'
-import { ColorPalette } from './ColorPalette'
-import { ColorPicker } from './ColorPicker'
-import { PanelHeading } from './PanelHeading'
+import { BrushSizeControl } from '../BrushSizeControl/BrushSizeControl'
+import { ColorPalette } from '../ColorPalette/ColorPalette'
+import { ColorPicker } from '../ColorPicker/ColorPicker'
+import { PanelHeading } from '../../Panel/PanelHeading/PanelHeading'
 import './ColorPanel.css'
 
 type ColorPanelProps = {

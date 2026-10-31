@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
-import './Panel.css'
+import '../Panel.css'
 
 type PanelHeadingProps = {
   eyebrow: string

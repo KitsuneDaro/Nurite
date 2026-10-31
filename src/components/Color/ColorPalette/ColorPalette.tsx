@@ -1,5 +1,5 @@
 import { Check } from 'lucide-react'
-import { palette } from '../constants/paint'
+import { palette } from '../../../constants/paint'
 import './ColorPalette.css'
 
 type ColorPaletteProps = {

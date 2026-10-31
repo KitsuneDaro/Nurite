@@ -1,6 +1,6 @@
 import type { HslColor } from 'react-colorful'
 import { HslColorPicker } from 'react-colorful'
-import { HueRing } from './HueRing'
+import { HueRing } from '../HueRing/HueRing'
 import './ColorPicker.css'
 
 type ColorPickerProps = {
