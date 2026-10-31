@@ -5,7 +5,7 @@ import { CanvasWorkspace } from './components/Canvas/CanvasWorkspace/CanvasWorks
 import { ColorPanel } from './components/Color/ColorPanel/ColorPanel'
 import { ToolsPanel } from './components/Tools/ToolsPanel/ToolsPanel'
 import { TopBar } from './components/TopBar/TopBar'
-import { MobilePanelNav, type MobilePanel } from './components/MobilePanelNav'
+import { MobilePanelNav, type MobilePanel } from './components/MobilePanelNav/MobilePanelNav'
 import { usePaletteStore } from './stores/paletteStore'
 import { hslToHex, hexToHsl } from './utils/color'
 import './App.css'
