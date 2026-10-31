@@ -1,0 +1,35 @@
+.direction-toggle {
+  min-height: 40px;
+  margin: -7px 0 15px;
+  padding: 0 9px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #303947;
+  border-radius: 8px;
+  color: #bdc6d2;
+  background: rgba(16, 21, 29, 0.36);
+  cursor: pointer;
+  font-size: 11px;
+  text-align: left;
+}
+
+.direction-toggle > svg {
+  color: #a5b3c3;
+}
+
+.direction-toggle.is-on {
+  border-color: #4a93bf;
+  color: #b3def6;
+  background: rgba(50, 93, 120, 0.27);
+}
+
+.direction-toggle.is-on > svg {
+  color: #83caff;
+}
+
+@media (max-width: 520px) {
+  .direction-toggle {
+    margin-bottom: 12px;
+  }
+}

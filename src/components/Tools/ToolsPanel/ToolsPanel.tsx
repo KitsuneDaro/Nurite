@@ -2,6 +2,7 @@ import { SlidersHorizontal } from 'lucide-react'
 import { brushShapes, paintTypes } from '../../../constants/paint'
 import type { BrushShape, BrushType } from '../../../types'
 import { EraserToggle } from '../EraserToggle/EraserToggle'
+import { DirectionToggle } from '../DirectionToggle/DirectionToggle'
 import { HistoryControls } from '../HistoryControls/HistoryControls'
 import { PanelHeading } from '../../Panel/PanelHeading/PanelHeading'
 import { PanelStatus } from '../PanelStatus/PanelStatus'
@@ -13,9 +14,11 @@ type ToolsPanelProps = {
   brushShape: BrushShape
   paintType: BrushType
   eraserEnabled: boolean
+  followDirection: boolean
   onBrushShapeChange: (shape: BrushShape) => void
   onPaintTypeChange: (type: BrushType) => void
   onEraserChange: (enabled: boolean) => void
+  onFollowDirectionChange: (enabled: boolean) => void
 }
 
 export function ToolsPanel({
@@ -23,9 +26,11 @@ export function ToolsPanel({
   brushShape,
   paintType,
   eraserEnabled,
+  followDirection,
   onBrushShapeChange,
   onPaintTypeChange,
   onEraserChange,
+  onFollowDirectionChange,
 }: ToolsPanelProps) {
   return (
     <aside className={`panel tools-panel ${mobileOpen ? 'mobile-panel-open' : ''}`}>
@@ -42,6 +47,7 @@ export function ToolsPanel({
         selected={brushShape}
         onSelect={onBrushShapeChange}
       />
+      <DirectionToggle enabled={followDirection} onChange={onFollowDirectionChange} />
       <ToolOptionGroup
         title="ペイントタイプ"
         className="paint-row"

@@ -18,6 +18,7 @@ function App() {
   })
   const [brushShape, setBrushShape] = useState<BrushShape>('round')
   const [paintType, setPaintType] = useState<BrushType>('oil')
+  const [followDirection, setFollowDirection] = useState(false)
   const [brushSize, setBrushSize] = useState(30)
   const [eraserEnabled, setEraserEnabled] = useState(false)
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel>(null)
@@ -47,12 +48,22 @@ function App() {
           brushShape={brushShape}
           paintType={paintType}
           eraserEnabled={eraserEnabled}
+          followDirection={followDirection}
           onBrushShapeChange={setBrushShape}
           onPaintTypeChange={setPaintType}
           onEraserChange={setEraserEnabled}
+          onFollowDirectionChange={setFollowDirection}
         />
         <CanvasToolbar zoom={canvasZoom} onZoomChange={setCanvasZoom} />
-        <CanvasWorkspace zoom={canvasZoom} onZoomChange={setCanvasZoom} />
+        <CanvasWorkspace
+          zoom={canvasZoom}
+          onZoomChange={setCanvasZoom}
+          brushShape={brushShape}
+          brushSize={brushSize}
+          brushColor={hslToHex(color)}
+          followDirection={followDirection}
+          eraserEnabled={eraserEnabled}
+        />
         <ColorPanel
           mobileOpen={activeMobilePanel === 'color'}
           color={color}

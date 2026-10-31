@@ -1,17 +1,25 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import { ThreeCanvas, type CanvasRenderStatus } from '../ThreeCanvas/ThreeCanvas'
+import type { BrushShape, BrushStrokeStyle, DrawingPoint } from '../../../types'
+import {
+  CANVAS_SIZE,
+  ThreeCanvas,
+  type CanvasDrawingHandle,
+  type CanvasRenderStatus,
+} from '../ThreeCanvas/ThreeCanvas'
 import './CanvasWorkspace.css'
 
 type CanvasWorkspaceProps = {
   zoom: number
   onZoomChange: (zoom: number) => void
+  brushShape: BrushShape
+  brushSize: number
+  brushColor: string
+  followDirection: boolean
+  eraserEnabled: boolean
 }
 
-type Point = {
-  x: number
-  y: number
-}
+type Point = DrawingPoint
 
 type PinchState = {
   distance: number
@@ -30,10 +38,31 @@ function getPinchMetrics(points: Point[]) {
   }
 }
 
-export function CanvasWorkspace({ zoom, onZoomChange }: CanvasWorkspaceProps) {
+export function CanvasWorkspace({
+  zoom,
+  onZoomChange,
+  brushShape,
+  brushSize,
+  brushColor,
+  followDirection,
+  eraserEnabled,
+}: CanvasWorkspaceProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
+  const frameRef = useRef<HTMLDivElement>(null)
+  const drawingRef = useRef<CanvasDrawingHandle>(null)
   const touchPointsRef = useRef(new Map<number, Point>())
   const pinchStateRef = useRef<PinchState | null>(null)
+  const activeDrawingPointerRef = useRef<number | null>(null)
+  const pendingPointsRef = useRef<Point[]>([])
+  const lastDrawnPointRef = useRef<Point | null>(null)
+  const drawingFrameRef = useRef<number | null>(null)
+  const drawingStyleRef = useRef<BrushStrokeStyle>({
+    shape: brushShape,
+    size: brushSize,
+    color: brushColor,
+    followDirection,
+    eraserEnabled,
+  })
   const zoomRef = useRef(zoom)
   const offsetRef = useRef<Point>({ x: 0, y: 0 })
   const [offset, setOffset] = useState<Point>({ x: 0, y: 0 })
@@ -41,6 +70,43 @@ export function CanvasWorkspace({ zoom, onZoomChange }: CanvasWorkspaceProps) {
   useLayoutEffect(() => {
     zoomRef.current = zoom
   }, [zoom])
+  useLayoutEffect(() => {
+    drawingStyleRef.current = {
+      shape: brushShape,
+      size: brushSize,
+      color: brushColor,
+      followDirection,
+      eraserEnabled,
+    }
+  }, [brushShape, brushColor, brushSize, eraserEnabled, followDirection])
+
+  const flushPendingPoints = useCallback(() => {
+    if (drawingFrameRef.current !== null) {
+      cancelAnimationFrame(drawingFrameRef.current)
+      drawingFrameRef.current = null
+    }
+    if (pendingPointsRef.current.length === 0) return
+
+    const pending = pendingPointsRef.current
+    const points = lastDrawnPointRef.current
+      ? [lastDrawnPointRef.current, ...pending]
+      : pending
+    drawingRef.current?.drawStroke(points, drawingStyleRef.current)
+    lastDrawnPointRef.current = pending[pending.length - 1]
+    pendingPointsRef.current = []
+  }, [])
+
+  const scheduleDrawingFrame = useCallback(() => {
+    if (drawingFrameRef.current !== null) return
+
+    drawingFrameRef.current = requestAnimationFrame(flushPendingPoints)
+  }, [flushPendingPoints])
+
+  useEffect(() => () => {
+    if (drawingFrameRef.current !== null) {
+      cancelAnimationFrame(drawingFrameRef.current)
+    }
+  }, [])
 
   const zoomAtPoint = useCallback((nextZoom: number, anchor: Point, rect: DOMRect) => {
     const previousZoom = zoomRef.current
@@ -88,38 +154,94 @@ export function CanvasWorkspace({ zoom, onZoomChange }: CanvasWorkspaceProps) {
     setRenderStatus(status)
   }, [])
 
+  function getCanvasPoint(clientX: number, clientY: number) {
+    const frame = frameRef.current
+    if (!frame) return null
+
+    const rect = frame.getBoundingClientRect()
+    const scale = rect.width / frame.offsetWidth
+    const borderLeft = Number.parseFloat(getComputedStyle(frame).borderLeftWidth) * scale
+    const borderTop = Number.parseFloat(getComputedStyle(frame).borderTopWidth) * scale
+    const contentWidth = frame.clientWidth * scale
+    const contentHeight = frame.clientHeight * scale
+    const left = rect.left + borderLeft
+    const top = rect.top + borderTop
+    const x = (clientX - left) / contentWidth * CANVAS_SIZE
+    const y = (clientY - top) / contentHeight * CANVAS_SIZE
+
+    return {
+      point: {
+        x: Math.min(CANVAS_SIZE, Math.max(0, x)),
+        y: Math.min(CANVAS_SIZE, Math.max(0, y)),
+      },
+      inside: x >= 0 && x <= CANVAS_SIZE && y >= 0 && y <= CANVAS_SIZE,
+    }
+  }
+
+  function startStroke(pointerId: number, point: Point) {
+    flushPendingPoints()
+    activeDrawingPointerRef.current = pointerId
+    lastDrawnPointRef.current = null
+    pendingPointsRef.current = [point]
+    scheduleDrawingFrame()
+  }
+
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.pointerType !== 'touch') return
+    if (event.pointerType === 'mouse' && event.button !== 0) return
 
     event.currentTarget.setPointerCapture(event.pointerId)
-    touchPointsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    if (event.pointerType === 'touch') {
+      touchPointsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    }
+
     if (touchPointsRef.current.size >= 2) {
+      flushPendingPoints()
+      activeDrawingPointerRef.current = null
       pinchStateRef.current = getPinchMetrics(Array.from(touchPointsRef.current.values()))
+      return
+    }
+
+    const canvasPoint = getCanvasPoint(event.clientX, event.clientY)
+    if (canvasPoint?.inside) {
+      startStroke(event.pointerId, canvasPoint.point)
     }
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.pointerType !== 'touch' || !touchPointsRef.current.has(event.pointerId)) return
-
-    touchPointsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
-    if (touchPointsRef.current.size < 2) return
-
-    const rect = event.currentTarget.getBoundingClientRect()
-    const metrics = getPinchMetrics(Array.from(touchPointsRef.current.values()))
-    const previousPinch = pinchStateRef.current
-    if (previousPinch && previousPinch.distance > 0) {
-      zoomAtPoint(
-        zoomRef.current * (metrics.distance / previousPinch.distance),
-        { x: metrics.center.x - rect.left, y: metrics.center.y - rect.top },
-        rect,
-      )
+    if (event.pointerType === 'touch') {
+      if (!touchPointsRef.current.has(event.pointerId)) return
+      touchPointsRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY })
+      if (touchPointsRef.current.size >= 2) {
+        const rect = event.currentTarget.getBoundingClientRect()
+        const metrics = getPinchMetrics(Array.from(touchPointsRef.current.values()))
+        const previousPinch = pinchStateRef.current
+        if (previousPinch && previousPinch.distance > 0) {
+          zoomAtPoint(
+            zoomRef.current * (metrics.distance / previousPinch.distance),
+            { x: metrics.center.x - rect.left, y: metrics.center.y - rect.top },
+            rect,
+          )
+        }
+        pinchStateRef.current = metrics
+        return
+      }
     }
-    pinchStateRef.current = metrics
+
+    if (activeDrawingPointerRef.current !== event.pointerId) return
+    const canvasPoint = getCanvasPoint(event.clientX, event.clientY)
+    if (!canvasPoint) return
+    pendingPointsRef.current.push(canvasPoint.point)
+    scheduleDrawingFrame()
   }
 
   function handlePointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
     touchPointsRef.current.delete(event.pointerId)
     pinchStateRef.current = null
+    if (activeDrawingPointerRef.current === event.pointerId) {
+      flushPendingPoints()
+      activeDrawingPointerRef.current = null
+      lastDrawnPointRef.current = null
+    }
   }
 
   return (
@@ -132,14 +254,16 @@ export function CanvasWorkspace({ zoom, onZoomChange }: CanvasWorkspaceProps) {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerEnd}
           onPointerCancel={handlePointerEnd}
+          onLostPointerCapture={handlePointerEnd}
         >
           <div
+            ref={frameRef}
             className="canvas-frame"
             style={{
               transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
             }}
           >
-            <ThreeCanvas onStatusChange={handleStatusChange} />
+            <ThreeCanvas ref={drawingRef} onStatusChange={handleStatusChange} />
           </div>
         </div>
         <span className="canvas-dimension dimension-top">1024 px</span>
