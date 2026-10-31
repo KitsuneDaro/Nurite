@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { BrushShape, BrushStrokeStyle, DrawingPoint } from '../../../types'
+import type { BrushShape, DrawingPoint } from '../../../types'
 import {
-  CANVAS_SIZE,
   ThreeCanvas,
   type CanvasDrawingHandle,
   type CanvasRenderStatus,
 } from '../ThreeCanvas/ThreeCanvas'
+import { useCanvasStroke } from './useCanvasStroke'
 import './CanvasWorkspace.css'
 
 type CanvasWorkspaceProps = {
@@ -52,14 +52,12 @@ export function CanvasWorkspace({
   const drawingRef = useRef<CanvasDrawingHandle>(null)
   const touchPointsRef = useRef(new Map<number, Point>())
   const pinchStateRef = useRef<PinchState | null>(null)
-  const activeDrawingPointerRef = useRef<number | null>(null)
-  const pendingPointsRef = useRef<Point[]>([])
-  const lastDrawnPointRef = useRef<Point | null>(null)
-  const drawingFrameRef = useRef<number | null>(null)
-  const drawingStyleRef = useRef<BrushStrokeStyle>({
-    shape: brushShape,
-    size: brushSize,
-    color: brushColor,
+  const stroke = useCanvasStroke({
+    frameRef,
+    drawingRef,
+    brushShape,
+    brushSize,
+    brushColor,
     followDirection,
     eraserEnabled,
   })
@@ -70,44 +68,6 @@ export function CanvasWorkspace({
   useLayoutEffect(() => {
     zoomRef.current = zoom
   }, [zoom])
-  useLayoutEffect(() => {
-    drawingStyleRef.current = {
-      shape: brushShape,
-      size: brushSize,
-      color: brushColor,
-      followDirection,
-      eraserEnabled,
-    }
-  }, [brushShape, brushColor, brushSize, eraserEnabled, followDirection])
-
-  const flushPendingPoints = useCallback(() => {
-    if (drawingFrameRef.current !== null) {
-      cancelAnimationFrame(drawingFrameRef.current)
-      drawingFrameRef.current = null
-    }
-    if (pendingPointsRef.current.length === 0) return
-
-    const pending = pendingPointsRef.current
-    const points = lastDrawnPointRef.current
-      ? [lastDrawnPointRef.current, ...pending]
-      : pending
-    drawingRef.current?.drawStroke(points, drawingStyleRef.current)
-    lastDrawnPointRef.current = pending[pending.length - 1]
-    pendingPointsRef.current = []
-  }, [])
-
-  const scheduleDrawingFrame = useCallback(() => {
-    if (drawingFrameRef.current !== null) return
-
-    drawingFrameRef.current = requestAnimationFrame(flushPendingPoints)
-  }, [flushPendingPoints])
-
-  useEffect(() => () => {
-    if (drawingFrameRef.current !== null) {
-      cancelAnimationFrame(drawingFrameRef.current)
-    }
-  }, [])
-
   const zoomAtPoint = useCallback((nextZoom: number, anchor: Point, rect: DOMRect) => {
     const previousZoom = zoomRef.current
     const clampedZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom))
@@ -154,38 +114,6 @@ export function CanvasWorkspace({
     setRenderStatus(status)
   }, [])
 
-  function getCanvasPoint(clientX: number, clientY: number) {
-    const frame = frameRef.current
-    if (!frame) return null
-
-    const rect = frame.getBoundingClientRect()
-    const scale = rect.width / frame.offsetWidth
-    const borderLeft = Number.parseFloat(getComputedStyle(frame).borderLeftWidth) * scale
-    const borderTop = Number.parseFloat(getComputedStyle(frame).borderTopWidth) * scale
-    const contentWidth = frame.clientWidth * scale
-    const contentHeight = frame.clientHeight * scale
-    const left = rect.left + borderLeft
-    const top = rect.top + borderTop
-    const x = (clientX - left) / contentWidth * CANVAS_SIZE
-    const y = (clientY - top) / contentHeight * CANVAS_SIZE
-
-    return {
-      point: {
-        x: Math.min(CANVAS_SIZE, Math.max(0, x)),
-        y: Math.min(CANVAS_SIZE, Math.max(0, y)),
-      },
-      inside: x >= 0 && x <= CANVAS_SIZE && y >= 0 && y <= CANVAS_SIZE,
-    }
-  }
-
-  function startStroke(pointerId: number, point: Point) {
-    flushPendingPoints()
-    activeDrawingPointerRef.current = pointerId
-    lastDrawnPointRef.current = null
-    pendingPointsRef.current = [point]
-    scheduleDrawingFrame()
-  }
-
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.pointerType === 'mouse' && event.button !== 0) return
 
@@ -195,16 +123,12 @@ export function CanvasWorkspace({
     }
 
     if (touchPointsRef.current.size >= 2) {
-      flushPendingPoints()
-      activeDrawingPointerRef.current = null
+      stroke.cancelStroke()
       pinchStateRef.current = getPinchMetrics(Array.from(touchPointsRef.current.values()))
       return
     }
 
-    const canvasPoint = getCanvasPoint(event.clientX, event.clientY)
-    if (canvasPoint?.inside) {
-      startStroke(event.pointerId, canvasPoint.point)
-    }
+    stroke.startStroke(event.pointerId, event.clientX, event.clientY)
   }
 
   function handlePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
@@ -227,21 +151,13 @@ export function CanvasWorkspace({
       }
     }
 
-    if (activeDrawingPointerRef.current !== event.pointerId) return
-    const canvasPoint = getCanvasPoint(event.clientX, event.clientY)
-    if (!canvasPoint) return
-    pendingPointsRef.current.push(canvasPoint.point)
-    scheduleDrawingFrame()
+    stroke.addStrokePoint(event.pointerId, event.clientX, event.clientY)
   }
 
   function handlePointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
     touchPointsRef.current.delete(event.pointerId)
     pinchStateRef.current = null
-    if (activeDrawingPointerRef.current === event.pointerId) {
-      flushPendingPoints()
-      activeDrawingPointerRef.current = null
-      lastDrawnPointRef.current = null
-    }
+    stroke.endStroke(event.pointerId)
   }
 
   return (
