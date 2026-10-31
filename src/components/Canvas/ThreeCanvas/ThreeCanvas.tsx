@@ -1,6 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { BrushStrokeStyle, DrawingSegment } from '../../../types'
 import { CanvasDrawingRenderer } from './CanvasDrawingRenderer'
+import {
+  getTextureDebugField,
+  type TextureDebugField,
+} from './TextureDebugFields'
 import './ThreeCanvas.css'
 
 export type CanvasRenderStatus = 'loading' | 'ready' | 'error'
@@ -13,16 +17,18 @@ export type CanvasDrawingHandle = {
     frameIndex: number,
   ) => void
   setDebugMode: (enabled: boolean) => void
+  setDebugField: (field: TextureDebugField) => void
   exportTextures: () => Promise<void>
 }
 
 type ThreeCanvasProps = {
   onStatusChange: (status: CanvasRenderStatus) => void
   debugMode: boolean
+  debugField: TextureDebugField
 }
 
 export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
-  function ThreeCanvas({ onStatusChange, debugMode }, ref) {
+  function ThreeCanvas({ onStatusChange, debugMode, debugField }, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
     const drawingRendererRef = useRef<CanvasDrawingRenderer | null>(null)
 
@@ -32,6 +38,9 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
       },
       setDebugMode(enabled) {
         drawingRendererRef.current?.setDebugMode(enabled)
+      },
+      setDebugField(field) {
+        drawingRendererRef.current?.setDebugField(field)
       },
       exportTextures() {
         return drawingRendererRef.current?.exportTextures()
@@ -66,14 +75,15 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
       drawingRendererRef.current?.setDebugMode(debugMode)
     }, [debugMode])
 
+    useEffect(() => {
+      drawingRendererRef.current?.setDebugField(debugField)
+    }, [debugField])
+
     return (
       <div ref={containerRef} className="three-canvas">
         {debugMode && (
-          <div className="texture-debug-labels" aria-label="テクスチャのデバッグ表示">
-            <span>メタ情報</span>
-            <span>色</span>
-            <span>描画状況 A</span>
-            <span>描画状況 B</span>
+          <div className="texture-debug-label" aria-live="polite">
+            {getTextureDebugField(debugField).label}
           </div>
         )}
       </div>

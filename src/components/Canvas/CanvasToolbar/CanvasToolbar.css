@@ -3,6 +3,7 @@
   min-height: 43px;
   padding: 0 12px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   border: 1px solid #29313e;
@@ -55,6 +56,56 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.texture-debug-fields {
+  width: 100%;
+  min-width: 0;
+  flex: 1 0 100%;
+  padding: 7px 0 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  border-top: 1px solid #303947;
+}
+
+.texture-debug-field-group {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #8290a2;
+  font-size: 9px;
+  white-space: nowrap;
+}
+
+.texture-debug-field-group > div {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.texture-debug-field {
+  min-height: 23px;
+  padding: 0 6px;
+  border: 1px solid #354050;
+  border-radius: 5px;
+  color: #aab6c5;
+  background: #202835;
+  font-size: 9px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.texture-debug-field:hover {
+  color: #e0e8f2;
+  background: #2a3544;
+}
+
+.texture-debug-field.selected {
+  border-color: #6387a2;
+  color: #d6ebfb;
+  background: #263c4d;
 }
 
 .texture-debug-toggle,
@@ -141,6 +192,16 @@
 
   .canvas-toolbar-actions {
     gap: 4px;
+  }
+
+  .texture-debug-fields {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .texture-debug-field-group {
+    flex: 0 0 auto;
   }
 
   .texture-debug-toggle,

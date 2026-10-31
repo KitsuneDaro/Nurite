@@ -1,4 +1,5 @@
 import { Bug, Download, Minus, Plus, Layers } from 'lucide-react'
+import { TEXTURE_DEBUG_GROUPS, type TextureDebugField } from '../ThreeCanvas/TextureDebugFields'
 import './CanvasToolbar.css'
 
 type CanvasToolbarProps = {
@@ -6,6 +7,8 @@ type CanvasToolbarProps = {
   onZoomChange: (zoom: number) => void
   debugMode: boolean
   onDebugModeChange: (enabled: boolean) => void
+  debugField: TextureDebugField
+  onDebugFieldChange: (field: TextureDebugField) => void
   onExportTextures: () => void
   exportingTextures: boolean
   textureExportStatus: string | null
@@ -20,12 +23,14 @@ export function CanvasToolbar({
   onZoomChange,
   debugMode,
   onDebugModeChange,
+  debugField,
+  onDebugFieldChange,
   onExportTextures,
   exportingTextures,
   textureExportStatus,
 }: CanvasToolbarProps) {
   return (
-    <div className="canvas-toolbar">
+    <div className={`canvas-toolbar${debugMode ? ' debug-mode' : ''}`}>
       <div className="canvas-meta">
         <span className="canvas-meta-icon"><Layers size={15} /></span>
         <span>キャンバス</span>
@@ -70,6 +75,28 @@ export function CanvasToolbar({
           </button>
         </div>
       </div>
+      {debugMode && (
+        <div className="texture-debug-fields" role="group" aria-label="デバッグ要素">
+          {TEXTURE_DEBUG_GROUPS.map((group) => (
+            <div className="texture-debug-field-group" key={group.label}>
+              <span>{group.label}</span>
+              <div>
+                {group.fields.map((field) => (
+                  <button
+                    className={`texture-debug-field${debugField === field.id ? ' selected' : ''}`}
+                    key={field.id}
+                    aria-label={`${group.label}: ${field.label}`}
+                    aria-pressed={debugField === field.id}
+                    onClick={() => onDebugFieldChange(field.id)}
+                  >
+                    {field.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {textureExportStatus && (
         <span className="texture-export-status" role="status">{textureExportStatus}</span>
       )}

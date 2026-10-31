@@ -7,6 +7,7 @@ import {
   type CanvasDrawingHandle,
   type CanvasRenderStatus,
 } from '../ThreeCanvas/ThreeCanvas'
+import type { TextureDebugField } from '../ThreeCanvas/TextureDebugFields'
 import { useCanvasStroke } from './useCanvasStroke'
 import './CanvasWorkspace.css'
 
@@ -20,6 +21,7 @@ type CanvasWorkspaceProps = {
   followDirection: boolean
   eraserEnabled: boolean
   debugMode: boolean
+  debugField: TextureDebugField
   drawingRef: RefObject<CanvasDrawingHandle | null>
 }
 
@@ -52,6 +54,7 @@ export function CanvasWorkspace({
   followDirection,
   eraserEnabled,
   debugMode,
+  debugField,
   drawingRef,
 }: CanvasWorkspaceProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -189,6 +192,7 @@ export function CanvasWorkspace({
             <ThreeCanvas
               ref={drawingRef}
               debugMode={debugMode}
+              debugField={debugField}
               onStatusChange={handleStatusChange}
             />
           </div>

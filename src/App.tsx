@@ -9,6 +9,10 @@ import { ToolsPanel } from './components/Tools/ToolsPanel/ToolsPanel'
 import { TopBar } from './components/TopBar/TopBar'
 import { MobilePanelNav, type MobilePanel } from './components/MobilePanelNav/MobilePanelNav'
 import { usePaletteStore } from './stores/paletteStore'
+import {
+  DEFAULT_TEXTURE_DEBUG_FIELD,
+  type TextureDebugField,
+} from './components/Canvas/ThreeCanvas/TextureDebugFields'
 import { hslToHex, hexToHsl } from './utils/color'
 import './App.css'
 
@@ -25,6 +29,7 @@ function App() {
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [debugMode, setDebugMode] = useState(false)
+  const [debugField, setDebugField] = useState<TextureDebugField>(DEFAULT_TEXTURE_DEBUG_FIELD)
   const [exportingTextures, setExportingTextures] = useState(false)
   const [textureExportStatus, setTextureExportStatus] = useState<string | null>(null)
   const drawingRef = useRef<CanvasDrawingHandle>(null)
@@ -83,6 +88,8 @@ function App() {
           onZoomChange={setCanvasZoom}
           debugMode={debugMode}
           onDebugModeChange={setDebugMode}
+          debugField={debugField}
+          onDebugFieldChange={setDebugField}
           onExportTextures={exportTextures}
           exportingTextures={exportingTextures}
           textureExportStatus={textureExportStatus}
@@ -97,6 +104,7 @@ function App() {
           followDirection={followDirection}
           eraserEnabled={eraserEnabled}
           debugMode={debugMode}
+          debugField={debugField}
           drawingRef={drawingRef}
         />
         <ColorPanel

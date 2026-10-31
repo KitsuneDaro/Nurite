@@ -8,6 +8,12 @@ import {
 } from './CanvasDrawingShader'
 import { downloadTextureArchive } from './CanvasTextureExport'
 import { CANVAS_SIZE } from './CanvasConstants'
+import {
+  DEFAULT_TEXTURE_DEBUG_FIELD,
+  getTextureDebugField,
+  type TextureDebugField,
+  type TextureDebugSource,
+} from './TextureDebugFields'
 import type { TextureDataType } from 'three'
 
 export { CANVAS_SIZE } from './CanvasConstants'
@@ -48,7 +54,9 @@ export class CanvasDrawingRenderer {
   private readonly displayCamera: THREE.OrthographicCamera
   private readonly debugScene: THREE.Scene
   private readonly debugCamera: THREE.OrthographicCamera
+  private readonly debugMaterial: THREE.ShaderMaterial
   private debugMode = false
+  private debugField = DEFAULT_TEXTURE_DEBUG_FIELD
   private disposed = false
 
   constructor(container: HTMLElement) {
@@ -126,39 +134,46 @@ export class CanvasDrawingRenderer {
       10,
     )
     this.debugCamera.position.z = 2
-    const debugTargets = [
-      this.metadataTarget,
-      this.colorTarget,
-      this.drawingStateTargetA,
-      this.drawingStateTargetB,
-    ]
-    debugTargets.forEach((target, index) => {
-      const debugMaterial = new THREE.ShaderMaterial({
-        uniforms: {
-          uTexture: { value: target.texture },
-          uTextureKind: { value: index },
-        },
-        vertexShader: textureDebugVertexShader,
-        fragmentShader: textureDebugFragmentShader,
-        depthTest: false,
-        depthWrite: false,
-        toneMapped: false,
-      })
-      const x = index % 2 === 0 ? -256 : 256
-      const y = index < 2 ? 256 : -256
-      const debugMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(480, 480),
-        debugMaterial,
-      )
-      debugMesh.position.set(x, y, 0)
-      this.debugScene.add(debugMesh)
+    this.debugMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uTexture: { value: this.metadataTarget.texture },
+        uDebugField: { value: getTextureDebugField(this.debugField).mode },
+      },
+      vertexShader: textureDebugVertexShader,
+      fragmentShader: textureDebugFragmentShader,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
     })
+    this.debugScene.add(new THREE.Mesh(
+      new THREE.PlaneGeometry(CANVAS_SIZE, CANVAS_SIZE),
+      this.debugMaterial,
+    ))
 
     this.clearTarget(this.metadataTarget, '#000000', 0)
     this.clearTarget(this.colorTarget, '#FFFFFF', 1)
     this.clearTarget(this.drawingStateTargetA, '#000000', 0)
-    this.clearTarget(this.drawingStateTargetB, '#000000', 0)
-    this.renderer.render(this.displayScene, this.displayCamera)
+    this.clearTarget(
+      this.drawingStateTargetB,
+      new THREE.Color().setRGB(128 / 255, 128 / 255, 128 / 255),
+      1,
+    )
+    this.renderOutput()
+  }
+
+  setDebugField(field: TextureDebugField) {
+    if (this.disposed || this.debugField === field) return
+    const definition = getTextureDebugField(field)
+    const targets: Record<TextureDebugSource, THREE.WebGLRenderTarget> = {
+      metadata: this.metadataTarget,
+      color: this.colorTarget,
+      'drawing-state-a': this.drawingStateTargetA,
+      'drawing-state-b': this.drawingStateTargetB,
+    }
+    this.debugField = field
+    this.debugMaterial.uniforms.uTexture.value = targets[definition.source]!.texture
+    this.debugMaterial.uniforms.uDebugField.value = definition.mode
+    if (this.debugMode) this.renderOutput()
   }
 
   setDebugMode(enabled: boolean) {
@@ -262,7 +277,11 @@ export class CanvasDrawingRenderer {
     this.debugScene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
       object.geometry.dispose()
-      object.material.dispose()
+      if (Array.isArray(object.material)) {
+        object.material.forEach((material) => material.dispose())
+      } else {
+        object.material.dispose()
+      }
     })
     this.renderer.dispose()
     this.renderer.domElement.remove()
