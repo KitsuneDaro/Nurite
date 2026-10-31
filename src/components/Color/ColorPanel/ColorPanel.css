@@ -17,7 +17,7 @@
   .color-panel.mobile-panel-open {
     position: absolute;
     z-index: 10;
-    top: 8px;
+    top: 51px;
     right: 60px;
     bottom: 8px;
     width: min(360px, calc(100% - 76px));

@@ -6,7 +6,7 @@
   .mobile-panel-nav {
     position: fixed;
     z-index: 20;
-    top: max(68px, calc(env(safe-area-inset-top) + 62px));
+    top: max(119px, calc(env(safe-area-inset-top) + 113px));
     right: 8px;
     display: flex;
     flex-direction: column;

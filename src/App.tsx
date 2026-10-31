@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { HslColor } from 'react-colorful'
 import type { BrushShape, BrushType } from './types'
 import { CanvasWorkspace } from './components/Canvas/CanvasWorkspace/CanvasWorkspace'
+import { CanvasToolbar } from './components/Canvas/CanvasToolbar/CanvasToolbar'
 import { ColorPanel } from './components/Color/ColorPanel/ColorPanel'
 import { ToolsPanel } from './components/Tools/ToolsPanel/ToolsPanel'
 import { TopBar } from './components/TopBar/TopBar'
@@ -49,6 +50,7 @@ function App() {
           onPaintTypeChange={setPaintType}
           onEraserChange={setEraserEnabled}
         />
+        <CanvasToolbar />
         <CanvasWorkspace />
         <ColorPanel
           mobileOpen={activeMobilePanel === 'color'}

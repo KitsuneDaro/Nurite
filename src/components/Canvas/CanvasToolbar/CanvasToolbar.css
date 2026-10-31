@@ -1,0 +1,84 @@
+.canvas-toolbar {
+  min-width: 0;
+  min-height: 43px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #29313e;
+  border-radius: 9px;
+  background: #1a202b;
+}
+
+.canvas-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #98a5b6;
+  font-size: 10px;
+}
+
+.canvas-meta-icon {
+  color: #88a6bf;
+}
+
+.canvas-meta strong {
+  color: #e0e6ef;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.meta-divider {
+  width: 1px;
+  height: 13px;
+  margin: 0 2px;
+  background: #394352;
+}
+
+.ratio-badge {
+  padding: 2px 5px;
+  border-radius: 4px;
+  color: #93a2b5;
+  background: #29323f;
+  font-size: 9px;
+}
+
+.canvas-zoom {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #b3becb;
+  font-size: 10px;
+}
+
+.canvas-zoom button {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: #98a7b9;
+  background: transparent;
+  cursor: pointer;
+}
+
+.canvas-zoom button:hover {
+  background: #252e3c;
+}
+
+@media (max-width: 520px) {
+  .canvas-toolbar {
+    min-height: 39px;
+    padding: 0 9px;
+  }
+
+  .canvas-meta {
+    gap: 6px;
+    font-size: 9px;
+  }
+
+  .canvas-meta strong {
+    font-size: 9px;
+  }
+}
