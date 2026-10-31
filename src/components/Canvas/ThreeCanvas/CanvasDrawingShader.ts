@@ -12,8 +12,6 @@ export const brushFragmentShader = `
   uniform vec2 uAcceleration;
   uniform float uBrushSize;
   uniform int uShape;
-  uniform int uBrushShapeId;
-  uniform int uPaintTypeId;
   uniform int uOutputType;
   uniform int uStrokeIndex;
   uniform int uFrameIndex;
@@ -145,6 +143,155 @@ export const brushFragmentShader = `
     return covered;
   }
 
+  float distanceFromRoundBrushEdge(
+    vec2 relativePoint,
+    vec2 tangent,
+    float segmentLength,
+    float halfSize
+  ) {
+    float along = clamp(dot(relativePoint, tangent), 0.0, segmentLength);
+    return max(0.0, halfSize - length(relativePoint - tangent * along));
+  }
+
+  float distanceFromFixedFlatBrushEdge(
+    vec2 relativePoint,
+    vec2 segment,
+    vec2 normal,
+    float halfSize,
+    float brushSize
+  ) {
+    float halfThickness = max(1.0, brushSize * 0.04);
+    float segmentLength = length(segment);
+    if (segmentLength == 0.0) {
+      return min(halfThickness - abs(relativePoint.x), halfSize - abs(relativePoint.y));
+    }
+
+    vec2 lowerBound = min(vec2(0.0), segment) - vec2(halfThickness, halfSize);
+    vec2 upperBound = max(vec2(0.0), segment) + vec2(halfThickness, halfSize);
+    float normalExtent = halfThickness * abs(normal.x) + halfSize * abs(normal.y);
+    float horizontalMargin = min(
+      relativePoint.x - lowerBound.x,
+      upperBound.x - relativePoint.x
+    );
+    float verticalMargin = min(
+      relativePoint.y - lowerBound.y,
+      upperBound.y - relativePoint.y
+    );
+    float normalMargin = normalExtent - abs(dot(relativePoint, normal));
+    return max(0.0, min(horizontalMargin, min(verticalMargin, normalMargin)));
+  }
+
+  float distanceToSegmentEdge(vec2 point, vec2 start, vec2 end) {
+    vec2 edge = end - start;
+    float edgeLengthSquared = dot(edge, edge);
+    if (edgeLengthSquared == 0.0) return length(point - start);
+    float along = clamp(dot(point - start, edge) / edgeLengthSquared, 0.0, 1.0);
+    return length(point - (start + edge * along));
+  }
+
+  float distanceFromDirectionalFlatBrushEdge(
+    vec2 relativePoint,
+    vec2 segment,
+    vec2 currentNormal,
+    vec2 previousDirection,
+    float segmentLength,
+    float halfSize
+  ) {
+    if (length(previousDirection) == 0.0) {
+      float along = dot(relativePoint, vec2(currentNormal.y, -currentNormal.x));
+      float across = dot(relativePoint, currentNormal);
+      return max(0.0, min(
+        halfSize - abs(across),
+        min(along, segmentLength - along)
+      ));
+    }
+
+    vec2 previousTangent = normalize(previousDirection);
+    vec2 previousNormal = vec2(-previousTangent.y, previousTangent.x);
+    vec2 previousPositive = previousNormal * halfSize;
+    vec2 previousNegative = -previousPositive;
+    vec2 currentPositive = currentNormal * halfSize;
+    vec2 currentNegative = -currentPositive;
+    vec2 endPositive = segment + currentPositive;
+    vec2 endNegative = segment + currentNegative;
+    float edgeDistance = distanceToSegmentEdge(
+      relativePoint, previousPositive, currentPositive
+    );
+    edgeDistance = min(edgeDistance, distanceToSegmentEdge(
+      relativePoint, currentPositive, endPositive
+    ));
+    edgeDistance = min(edgeDistance, distanceToSegmentEdge(
+      relativePoint, endPositive, endNegative
+    ));
+    edgeDistance = min(edgeDistance, distanceToSegmentEdge(
+      relativePoint, endNegative, currentNegative
+    ));
+    edgeDistance = min(edgeDistance, distanceToSegmentEdge(
+      relativePoint, currentNegative, previousNegative
+    ));
+    edgeDistance = min(edgeDistance, distanceToSegmentEdge(
+      relativePoint, previousNegative, previousPositive
+    ));
+    return edgeDistance;
+  }
+
+  float distanceFromFlatBrushEdge(
+    vec2 relativePoint,
+    vec2 segment,
+    vec2 tangent,
+    vec2 normal,
+    float segmentLength,
+    float halfSize,
+    float brushSize,
+    float followDirection
+  ) {
+    if (followDirection <= 0.5) {
+      return distanceFromFixedFlatBrushEdge(
+        relativePoint, segment, normal, halfSize, brushSize
+      );
+    }
+
+    return distanceFromDirectionalFlatBrushEdge(
+      relativePoint,
+      segment,
+      normal,
+      uPreviousDirection,
+      segmentLength,
+      halfSize
+    );
+  }
+
+  float distanceFromSquareBrushEdge(
+    vec2 relativePoint,
+    vec2 segment,
+    vec2 tangent,
+    vec2 normal,
+    float segmentLength,
+    float halfSize,
+    float followDirection
+  ) {
+    if (followDirection > 0.5 && segmentLength > 0.0) {
+      float along = dot(relativePoint, tangent);
+      float across = dot(relativePoint, normal);
+      float alongMargin = min(along + halfSize, segmentLength + halfSize - along);
+      return max(0.0, min(alongMargin, halfSize - abs(across)));
+    }
+
+    vec2 lowerBound = min(vec2(0.0), segment) - vec2(halfSize);
+    vec2 upperBound = max(vec2(0.0), segment) + vec2(halfSize);
+    float horizontalMargin = min(
+      relativePoint.x - lowerBound.x,
+      upperBound.x - relativePoint.x
+    );
+    float verticalMargin = min(
+      relativePoint.y - lowerBound.y,
+      upperBound.y - relativePoint.y
+    );
+    float normalExtent = halfSize * (abs(normal.x) + abs(normal.y));
+    float normalMargin = normalExtent - abs(dot(relativePoint, normal));
+    return max(0.0, min(horizontalMargin, min(verticalMargin, normalMargin)));
+  }
+
   void main() {
     vec2 point = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
     vec2 segment = uEnd - uStart;
@@ -213,13 +360,45 @@ export const brushFragmentShader = `
     } else if (uOutputType == 1) {
       gl_FragColor = vec4(uColor, 1.0);
     } else if (uOutputType == 2) {
-      float packedBrushAndPaint = float(uBrushShapeId * 8 + uPaintTypeId);
+      float edgeDistance = 0.0;
+      if (uShape == 0) {
+        edgeDistance = distanceFromRoundBrushEdge(
+          relativePoint, tangent, segmentLength, halfSize
+        );
+      } else if (uShape == 1) {
+        edgeDistance = distanceFromFlatBrushEdge(
+          relativePoint,
+          segment,
+          tangent,
+          normal,
+          segmentLength,
+          halfSize,
+          uBrushSize,
+          followDirection
+        );
+      } else {
+        edgeDistance = distanceFromSquareBrushEdge(
+          relativePoint,
+          segment,
+          tangent,
+          normal,
+          segmentLength,
+          halfSize,
+          followDirection
+        );
+      }
+
+      float endX = floor(clamp(uEnd.x, 0.0, 1023.0) + 0.5);
+      float endY = floor(clamp(uEnd.y, 0.0, 1023.0) + 0.5);
+      float distanceValue = floor(clamp(edgeDistance, 0.0, 63.0) + 0.5);
+      float brushSize = floor(clamp(uBrushSize, 0.0, 63.0) + 0.5);
+      float byte0 = mod(endX, 256.0);
+      float byte1 = floor(endX / 256.0) + mod(endY, 64.0) * 4.0;
+      float byte2 = floor(endY / 64.0) + mod(distanceValue, 16.0) * 16.0;
+      float byte3 = floor(distanceValue / 16.0) + brushSize * 4.0;
       gl_FragColor = vec4(
-        floor(clamp(uEnd.x, 0.0, 1023.0) + 0.5),
-        floor(clamp(uEnd.y, 0.0, 1023.0) + 0.5),
-        packedBrushAndPaint,
-        floor(uBrushSize + 0.5)
-      );
+        byte0, byte1, byte2, byte3
+      ) / 255.0;
     } else {
       vec2 velocity = clamp(uVelocity, vec2(-128.0), vec2(127.0));
       vec2 acceleration = clamp(uAcceleration, vec2(-128.0), vec2(127.0));
@@ -240,7 +419,11 @@ export const textureDebugFragmentShader = `
     vec4 value = texture2D(uTexture, vUv);
     vec4 debugValue = value;
     if (uTextureKind == 2) {
-      debugValue = vec4(value.r / 1023.0, value.g / 1023.0, value.b / 63.0, value.a / 255.0);
+      vec4 bytes = floor(value * 255.0 + 0.5);
+      float endX = bytes.r + mod(bytes.g, 4.0) * 256.0;
+      float endY = mod(floor(bytes.g / 4.0), 64.0) + mod(bytes.b, 16.0) * 64.0;
+      float edgeDistance = floor(bytes.b / 16.0) + mod(bytes.a, 4.0) * 16.0;
+      debugValue = vec4(endX / 1023.0, endY / 1023.0, edgeDistance / 63.0, 1.0);
     }
     gl_FragColor = vec4(debugValue.rgb, 1.0);
     #include <colorspace_fragment>

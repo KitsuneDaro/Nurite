@@ -1,20 +1,11 @@
 import { CANVAS_SIZE } from './CanvasConstants'
 
-type TexturePixels = Uint8Array | Uint16Array
+type TexturePixels = Uint8Array
 type TextureName = 'metadata' | 'color' | 'drawing-state-a' | 'drawing-state-b'
 
 type ArchiveEntry = {
   name: string
   data: Uint8Array
-}
-
-function halfToFloat(value: number) {
-  const sign = (value & 0x8000) === 0 ? 1 : -1
-  const exponent = (value >> 10) & 0x1F
-  const fraction = value & 0x03FF
-  if (exponent === 0) return sign * fraction * 2 ** -24
-  if (exponent === 0x1F) return fraction === 0 ? sign * Infinity : NaN
-  return sign * (1 + fraction / 1024) * 2 ** (exponent - 15)
 }
 
 function clampByte(value: number) {
@@ -31,7 +22,6 @@ function linearToSrgb(value: number) {
 
 function createPreviewPixels(name: TextureName, pixels: TexturePixels) {
   const preview = new Uint8ClampedArray(CANVAS_SIZE * CANVAS_SIZE * 4)
-  const pixelCount = CANVAS_SIZE * CANVAS_SIZE
 
   for (let y = 0; y < CANVAS_SIZE; y += 1) {
     const sourceRow = CANVAS_SIZE - 1 - y
@@ -39,13 +29,20 @@ function createPreviewPixels(name: TextureName, pixels: TexturePixels) {
       const sourceIndex = (sourceRow * CANVAS_SIZE + x) * 4
       const targetIndex = (y * CANVAS_SIZE + x) * 4
       if (name === 'drawing-state-a') {
-        const values = pixels as Uint16Array
-        preview[targetIndex] = clampByte(halfToFloat(values[sourceIndex] ?? 0) / 1023 * 255)
-        preview[targetIndex + 1] = clampByte(halfToFloat(values[sourceIndex + 1] ?? 0) / 1023 * 255)
-        preview[targetIndex + 2] = clampByte(halfToFloat(values[sourceIndex + 2] ?? 0) / 63 * 255)
+        const values = pixels as Uint8Array
+        const byte0 = values[sourceIndex] ?? 0
+        const byte1 = values[sourceIndex + 1] ?? 0
+        const byte2 = values[sourceIndex + 2] ?? 0
+        const byte3 = values[sourceIndex + 3] ?? 0
+        const endX = byte0 + (byte1 % 4) * 256
+        const endY = Math.floor(byte1 / 4) + (byte2 % 16) * 64
+        const edgeDistance = Math.floor(byte2 / 16) + (byte3 % 4) * 16
+        preview[targetIndex] = clampByte(endX / 1023 * 255)
+        preview[targetIndex + 1] = clampByte(endY / 1023 * 255)
+        preview[targetIndex + 2] = clampByte(edgeDistance / 63 * 255)
         preview[targetIndex + 3] = 255
       } else {
-        const values = pixels as Uint8Array
+        const values = pixels
         const isColorTexture = name === 'color'
         preview[targetIndex] = isColorTexture
           ? linearToSrgb(values[sourceIndex] ?? 0)
@@ -61,11 +58,11 @@ function createPreviewPixels(name: TextureName, pixels: TexturePixels) {
     }
   }
 
-  return { data: preview, pixelCount }
+  return preview
 }
 
 async function createPng(name: TextureName, pixels: TexturePixels) {
-  const { data } = createPreviewPixels(name, pixels)
+  const data = createPreviewPixels(name, pixels)
   const canvas = document.createElement('canvas')
   canvas.width = CANVAS_SIZE
   canvas.height = CANVAS_SIZE
@@ -211,16 +208,16 @@ export async function downloadTextureArchive(
       },
       color: { format: 'RGBA8', channels: 'Linear RGBA color' },
       'drawing-state-a': {
-        format: 'RGBA16F',
-        channels: 'R=end X (0-1023), G=end Y (0-1023), B=(3-bit brush shape << 3) | 3-bit paint type, A=brush size (0-255)',
+        format: 'RGBA8',
+        channels: 'R=end X bits 0-7; G=end X bits 8-9 | end Y bits 0-5 shifted left 2; B=end Y bits 6-9 | edge distance bits 0-3 shifted left 4; A=edge distance bits 4-5 | brush size bits 0-5 shifted left 2.',
       },
       'drawing-state-b': {
         format: 'RGBA8',
         channels: 'R/G=velocity X/Y and B/A=acceleration X/Y, signed values biased by +128',
       },
     },
-    binaryStorage: 'Raw render-target RGBA bytes in WebGL bottom-up row order; drawing-state-a uses little-endian IEEE-754 binary16 channels.',
-    previews: 'PNG previews are vertically oriented for normal image viewers and normalize floating-point channels.',
+    binaryStorage: 'Raw render-target RGBA8 bytes in WebGL bottom-up row order.',
+    previews: 'PNG previews are vertically oriented for normal image viewers; drawing-state-a previews normalize end X, end Y, and distance from edge.',
   }
   entries.push({
     name: 'manifest.json',

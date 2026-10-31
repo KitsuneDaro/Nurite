@@ -11,7 +11,7 @@ import { CANVAS_SIZE } from './CanvasConstants'
 import type { TextureDataType } from 'three'
 
 export { CANVAS_SIZE } from './CanvasConstants'
-const MAX_BRUSH_SIZE = 255
+const MAX_BRUSH_SIZE = 63
 
 const TEXTURE_NAMES = [
   'metadata',
@@ -20,10 +20,7 @@ const TEXTURE_NAMES = [
   'drawing-state-b',
 ] as const
 
-function createRenderTarget(
-  type: TextureDataType = THREE.UnsignedByteType,
-  internalFormat?: 'RGBA16F',
-) {
+function createRenderTarget(type: TextureDataType = THREE.UnsignedByteType) {
   const target = new THREE.WebGLRenderTarget(CANVAS_SIZE, CANVAS_SIZE, {
     minFilter: THREE.NearestFilter,
     magFilter: THREE.NearestFilter,
@@ -34,7 +31,6 @@ function createRenderTarget(
   })
   target.texture.generateMipmaps = false
   target.texture.colorSpace = THREE.NoColorSpace
-  if (internalFormat) target.texture.internalFormat = internalFormat
   return target
 }
 
@@ -67,15 +63,9 @@ export class CanvasDrawingRenderer {
     this.renderer.domElement.setAttribute('aria-label', '1024×1024 Three.js キャンバス')
     container.appendChild(this.renderer.domElement)
 
-    if (!this.renderer.extensions.has('EXT_color_buffer_float')) {
-      this.renderer.dispose()
-      this.renderer.domElement.remove()
-      throw new Error('The browser does not support rendering floating-point textures.')
-    }
-
     this.metadataTarget = createRenderTarget()
     this.colorTarget = createRenderTarget()
-    this.drawingStateTargetA = createRenderTarget(THREE.HalfFloatType, 'RGBA16F')
+    this.drawingStateTargetA = createRenderTarget()
     this.drawingStateTargetB = createRenderTarget()
 
     this.brushMaterial = new THREE.ShaderMaterial({
@@ -87,8 +77,6 @@ export class CanvasDrawingRenderer {
         uAcceleration: { value: new THREE.Vector2() },
         uBrushSize: { value: 1 },
         uShape: { value: 0 },
-        uBrushShapeId: { value: 0 },
-        uPaintTypeId: { value: 0 },
         uOutputType: { value: 0 },
         uStrokeIndex: { value: 0 },
         uFrameIndex: { value: 0 },
@@ -188,10 +176,8 @@ export class CanvasDrawingRenderer {
       this.drawingStateTargetA,
       this.drawingStateTargetB,
     ]
-    const buffers = targets.map((target, index) => {
-      const pixels = index === 2
-        ? new Uint16Array(CANVAS_SIZE * CANVAS_SIZE * 4)
-        : new Uint8Array(CANVAS_SIZE * CANVAS_SIZE * 4)
+    const buffers = targets.map((target) => {
+      const pixels = new Uint8Array(CANVAS_SIZE * CANVAS_SIZE * 4)
       this.renderer.readRenderTargetPixels(
         target,
         0,
@@ -223,10 +209,6 @@ export class CanvasDrawingRenderer {
     )
     this.brushMaterial.uniforms.uShape.value =
       style.shape === 'round' ? 0 : style.shape === 'flat' ? 1 : 2
-    this.brushMaterial.uniforms.uBrushShapeId.value =
-      style.shape === 'round' ? 0 : style.shape === 'flat' ? 1 : 2
-    this.brushMaterial.uniforms.uPaintTypeId.value =
-      style.paintType === 'normal' ? 0 : style.paintType === 'oil' ? 1 : 2
     this.brushMaterial.uniforms.uStrokeIndex.value = strokeIndex
     this.brushMaterial.uniforms.uFrameIndex.value = frameIndex
     this.brushMaterial.uniforms.uFollowDirection.value = style.followDirection ? 1 : 0

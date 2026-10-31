@@ -35,7 +35,7 @@ export function useCanvasStroke({
   const pendingPointsRef = useRef<DrawingPoint[]>([])
   const lastDrawnPointRef = useRef<DrawingPoint | null>(null)
   const previousDirectionRef = useRef<DrawingPoint | null>(null)
-  const nextStrokeIndexRef = useRef(0)
+  const nextStrokeIndexRef = useRef(1)
   const frameIndexRef = useRef(0)
   const activeStrokeIndexRef = useRef(0)
   const drawingFrameRef = useRef<number | null>(null)

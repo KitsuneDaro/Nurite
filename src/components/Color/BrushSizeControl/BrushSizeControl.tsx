@@ -7,6 +7,8 @@ type BrushSizeControlProps = {
 }
 
 export function BrushSizeControl({ size, onChange }: BrushSizeControlProps) {
+  const progress = ((size - 1) / 62) * 100
+
   return (
     <section className="brush-size-section">
       <div className="brush-size-heading">
@@ -16,13 +18,13 @@ export function BrushSizeControl({ size, onChange }: BrushSizeControlProps) {
       <input
         type="range"
         min="1"
-        max="100"
+        max="63"
         value={size}
         onChange={(event) => onChange(Number(event.target.value))}
         aria-label="ブラシサイズ"
-        style={{ '--range-progress': `${size}%` } as CSSProperties}
+        style={{ '--range-progress': `${progress}%` } as CSSProperties}
       />
-      <div className="range-labels"><span>1 px</span><span>100 px</span></div>
+      <div className="range-labels"><span>1 px</span><span>63 px</span></div>
     </section>
   )
 }
