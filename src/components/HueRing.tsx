@@ -14,8 +14,8 @@ function hueFromPointer(event: PointerEvent<SVGSVGElement>) {
 
 export function HueRing({ hue, onChange }: HueRingProps) {
   const radians = (hue - 90) * Math.PI / 180
-  const markerPosition = 50 + 43 * Math.cos(radians)
-  const markerHeight = 50 + 43 * Math.sin(radians)
+  const markerPositionX = 50 + 47.25 * Math.cos(radians)
+  const markerPositionY = 50 + 47.25 * Math.sin(radians)
 
   function handleKeyDown(event: KeyboardEvent<SVGSVGElement>) {
     const step = event.shiftKey ? 10 : 1
@@ -56,7 +56,7 @@ export function HueRing({ hue, onChange }: HueRingProps) {
       </svg>
       <span
         className="hue-ring-marker"
-        style={{ left: `${markerPosition}%`, top: `${markerHeight}%` }}
+        style={{ left: `${markerPositionX}%`, top: `${markerPositionY}%` }}
       />
     </div>
   )
