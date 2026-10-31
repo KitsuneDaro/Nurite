@@ -1,6 +1,7 @@
 .tools-panel {
   display: flex;
   flex-direction: column;
+  overflow-y: auto;
 }
 
 @media (max-width: 520px) {
@@ -8,6 +9,24 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     column-gap: 13px;
+  }
+
+  @media (max-width: 760px) {
+    .tools-panel {
+      display: none;
+    }
+
+    .tools-panel.mobile-panel-open {
+      position: absolute;
+      z-index: 10;
+      top: 10px;
+      bottom: 10px;
+      left: 12px;
+      width: min(340px, calc(100% - 24px));
+      max-height: calc(100% - 20px);
+      display: flex;
+      overflow-y: auto;
+    }
   }
 
   .tools-panel .panel-heading,

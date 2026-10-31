@@ -1,17 +1,21 @@
 #root {
-  min-height: 100vh;
+  height: 100%;
 }
 
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
+  height: 100dvh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   background:
     radial-gradient(ellipse at 51% 47%, rgba(37, 55, 75, 0.18), transparent 49%),
     var(--background);
 }
 
 .workspace {
+  min-height: 0;
   width: min(1600px, 100%);
   margin: 0 auto;
   padding: 20px 24px 16px;
@@ -19,6 +23,7 @@
   flex: 1;
   grid-template-columns: 220px minmax(0, 1fr) 274px;
   gap: 18px;
+  overflow: hidden;
 }
 
 .app-footer {
@@ -57,44 +62,115 @@
 
 @media (max-width: 760px) {
   .workspace {
-    padding: 12px;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    grid-template-areas:
-      'canvas canvas'
-      'tools color';
-    align-content: start;
-    gap: 12px;
+    position: relative;
+    display: block;
+    padding: 8px 12px 12px;
   }
 
   .canvas-workspace {
-    grid-area: canvas;
-  }
-
-  .tools-panel {
-    grid-area: tools;
-  }
-
-  .color-panel {
-    grid-area: color;
+    height: 100%;
   }
 
   .app-footer {
-    padding: 0 14px;
+    display: none;
   }
 }
 
 @media (max-width: 520px) {
   .workspace {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      'canvas'
-      'tools'
-      'color';
-    gap: 10px;
+    padding-right: 8px;
+    padding-left: 8px;
+  }
+}
+
+@media (max-height: 760px) and (min-width: 761px) {
+  .workspace {
+    padding-top: 10px;
+    padding-bottom: 10px;
   }
 
-  .app-footer {
-    min-height: 31px;
-    font-size: 8px;
+  .panel {
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .panel-heading {
+    margin-bottom: 12px;
+  }
+
+  .control-section {
+    margin-bottom: 10px;
+  }
+
+  .tool-choice {
+    height: 52px;
+  }
+
+  .action-tile {
+    min-height: 55px;
+    gap: 4px;
+  }
+
+  .color-wheel-wrap {
+    width: min(100%, 140px);
+    margin-top: 7px;
+    margin-bottom: 7px;
+  }
+
+  .palette-section {
+    margin-top: 3px;
+    padding-top: 8px;
+  }
+
+  .palette-grid {
+    margin-top: 6px;
+    gap: 5px;
+  }
+
+  .brush-size-section {
+    padding-top: 9px;
+  }
+}
+
+@media (max-height: 600px) and (min-width: 761px) {
+  .color-wheel-wrap {
+    width: min(100%, 90px);
+  }
+}
+
+@media (max-height: 560px) and (min-width: 761px) {
+  .color-wheel-wrap {
+    width: min(100%, 64px);
+  }
+
+  .palette-grid {
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 3px;
+  }
+
+  .palette-section {
+    padding-top: 5px;
+  }
+
+  .tools-panel .panel-heading {
+    margin-bottom: 8px;
+  }
+
+  .tools-panel .control-section {
+    margin-bottom: 6px;
+  }
+
+  .tools-panel .tool-choice {
+    height: 46px;
+    gap: 3px;
+  }
+
+  .tools-panel .eraser-toggle {
+    min-height: 38px;
+    margin-bottom: 9px;
+  }
+
+  .tools-panel .action-tile {
+    min-height: 48px;
   }
 }

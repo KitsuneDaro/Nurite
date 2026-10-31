@@ -1,14 +1,15 @@
 import { Check } from 'lucide-react'
-import { palette } from '../../../constants/paint'
 import './ColorPalette.css'
 
 type ColorPaletteProps = {
+  colors: readonly string[]
   currentHex: string
   selectedPalette: number
   onSelect: (hex: string, index: number) => void
 }
 
 export function ColorPalette({
+  colors,
   currentHex,
   selectedPalette,
   onSelect,
@@ -17,7 +18,7 @@ export function ColorPalette({
     <section className="palette-section">
       <div className="section-title">カラーパレット <span>24色</span></div>
       <div className="palette-grid">
-        {palette.map((hex, index) => (
+        {colors.map((hex, index) => (
           <button
             key={`${hex}-${index}`}
             className={`palette-swatch ${selectedPalette === index ? 'active' : ''}`}

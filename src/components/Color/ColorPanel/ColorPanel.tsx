@@ -7,8 +7,10 @@ import { PanelHeading } from '../../Panel/PanelHeading/PanelHeading'
 import './ColorPanel.css'
 
 type ColorPanelProps = {
+  mobileOpen: boolean
   color: HslColor
   currentHex: string
+  paletteColors: readonly string[]
   selectedPalette: number
   brushSize: number
   onColorChange: (color: HslColor) => void
@@ -17,8 +19,10 @@ type ColorPanelProps = {
 }
 
 export function ColorPanel({
+  mobileOpen,
   color,
   currentHex,
+  paletteColors,
   selectedPalette,
   brushSize,
   onColorChange,
@@ -26,7 +30,7 @@ export function ColorPanel({
   onBrushSizeChange,
 }: ColorPanelProps) {
   return (
-    <aside className="panel color-panel">
+    <aside className={`panel color-panel ${mobileOpen ? 'mobile-panel-open' : ''}`}>
       <PanelHeading
         eyebrow="COLOR &amp; SETTINGS"
         title="カラーと設定"
@@ -36,6 +40,7 @@ export function ColorPanel({
       />
       <ColorPicker color={color} currentHex={currentHex} onChange={onColorChange} />
       <ColorPalette
+        colors={paletteColors}
         currentHex={currentHex}
         selectedPalette={selectedPalette}
         onSelect={onPaletteSelect}

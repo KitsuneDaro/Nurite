@@ -2,7 +2,6 @@ import { SlidersHorizontal } from 'lucide-react'
 import { brushShapes, paintTypes } from '../../../constants/paint'
 import type { BrushShape, BrushType } from '../../../types'
 import { EraserToggle } from '../EraserToggle/EraserToggle'
-import { FileControls } from '../FileControls/FileControls'
 import { HistoryControls } from '../HistoryControls/HistoryControls'
 import { PanelHeading } from '../../Panel/PanelHeading/PanelHeading'
 import { PanelStatus } from '../PanelStatus/PanelStatus'
@@ -10,6 +9,7 @@ import { ToolOptionGroup } from '../ToolOptionGroup/ToolOptionGroup'
 import './ToolsPanel.css'
 
 type ToolsPanelProps = {
+  mobileOpen: boolean
   brushShape: BrushShape
   paintType: BrushType
   eraserEnabled: boolean
@@ -19,6 +19,7 @@ type ToolsPanelProps = {
 }
 
 export function ToolsPanel({
+  mobileOpen,
   brushShape,
   paintType,
   eraserEnabled,
@@ -27,7 +28,7 @@ export function ToolsPanel({
   onEraserChange,
 }: ToolsPanelProps) {
   return (
-    <aside className="panel tools-panel">
+    <aside className={`panel tools-panel ${mobileOpen ? 'mobile-panel-open' : ''}`}>
       <PanelHeading
         eyebrow="TOOLS"
         title="ペイントツール"
@@ -50,7 +51,6 @@ export function ToolsPanel({
       />
       <EraserToggle enabled={eraserEnabled} onChange={onEraserChange} />
       <HistoryControls />
-      <FileControls />
       <PanelStatus />
     </aside>
   )

@@ -1,5 +1,6 @@
 .topbar {
   height: 66px;
+  flex: 0 0 auto;
   padding: 0 30px;
   display: flex;
   align-items: center;
@@ -86,8 +87,7 @@
 }
 
 .topbar-button,
-.export-button,
-.avatar {
+.export-button {
   border: 1px solid #2d3746;
   background: #1b222d;
   cursor: pointer;
@@ -121,17 +121,6 @@
   background: #c1e4fa;
 }
 
-.avatar {
-  width: 30px;
-  height: 30px;
-  margin-left: 4px;
-  border-color: #42586b;
-  border-radius: 50%;
-  color: #d2e8f7;
-  background: #31485b;
-  font-size: 12px;
-}
-
 @media (max-width: 1050px) {
   .topbar {
     padding: 0 18px;
@@ -153,8 +142,7 @@
   }
 
   .saved-status,
-  .topbar-button span,
-  .avatar {
+  .topbar-button span {
     display: none;
   }
 
