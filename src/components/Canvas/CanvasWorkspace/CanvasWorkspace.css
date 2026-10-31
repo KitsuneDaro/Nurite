@@ -9,21 +9,30 @@
   position: relative;
   container-type: size;
   min-height: 0;
+  flex: 1;
+}
+
+.canvas-viewport {
+  position: absolute;
+  inset: 0;
   padding: 29px 26px;
   display: flex;
-  flex: 1;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
+  touch-action: none;
 }
 
 .canvas-frame {
   position: relative;
-  width: min(100cqw, 100cqh, calc(100dvh - 260px));
+  width: min(calc(100cqw - 52px), calc(100cqh - 58px), calc(100dvh - 260px));
+  flex: 0 0 auto;
   aspect-ratio: 1;
   overflow: hidden;
   border: 1px solid rgba(183, 197, 211, 0.3);
   background: #14213b;
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32), 0 0 0 5px rgba(25, 32, 43, 0.78);
+  will-change: transform;
 }
 
 .canvas-frame > .three-canvas {
@@ -75,13 +84,12 @@
 }
 
 @media (max-width: 760px) {
-  .canvas-stage {
-    min-height: 0;
+  .canvas-viewport {
     padding: 25px 20px;
   }
 
   .canvas-frame {
-    width: min(100cqw, 100cqh, 60vh);
+    width: min(calc(100cqw - 40px), calc(100cqh - 50px), 60vh);
   }
 
   .dimension-top {
@@ -94,11 +102,11 @@
 }
 
 @media (max-width: 520px) {
-  .canvas-stage {
+  .canvas-viewport {
     padding: 24px 17px;
   }
 
   .canvas-frame {
-    width: min(100cqw, 100cqh, 48vh);
+    width: min(calc(100cqw - 34px), calc(100cqh - 48px), 48vh);
   }
 }

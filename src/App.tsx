@@ -21,6 +21,7 @@ function App() {
   const [brushSize, setBrushSize] = useState(30)
   const [eraserEnabled, setEraserEnabled] = useState(false)
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel>(null)
+  const [canvasZoom, setCanvasZoom] = useState(1)
   const paletteColors = usePaletteStore((state) => state.colors)
   const selectedPalette = usePaletteStore((state) => state.selectedIndex)
   const selectPaletteColor = usePaletteStore((state) => state.selectColor)
@@ -50,8 +51,8 @@ function App() {
           onPaintTypeChange={setPaintType}
           onEraserChange={setEraserEnabled}
         />
-        <CanvasToolbar />
-        <CanvasWorkspace />
+        <CanvasToolbar zoom={canvasZoom} onZoomChange={setCanvasZoom} />
+        <CanvasWorkspace zoom={canvasZoom} onZoomChange={setCanvasZoom} />
         <ColorPanel
           mobileOpen={activeMobilePanel === 'color'}
           color={color}
