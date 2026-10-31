@@ -1,57 +1,34 @@
 import React from 'react';
-import { Header } from './components/Header';
-import { ToolPanel } from './components/ToolPanel';
+import { PaintTools } from './components/PaintTools';
 import { ColorPanel } from './components/ColorPanel';
 import { CanvasArea } from './components/CanvasArea';
-import { usePaintStore } from './store/usePaintStore';
-import { X } from 'lucide-react';
 
 export function App() {
-  const { isColorModalOpen, setColorModalOpen } = usePaintStore();
-
   return (
-    <div className="flex flex-col h-screen w-screen bg-zinc-950 overflow-hidden font-sans">
-      {/* トップナビゲーション */}
-      <Header />
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans select-none">
+      {/* ヘッダーバー */}
+      <header className="h-14 border-b border-slate-800 px-6 flex items-center justify-between bg-slate-900/50 backdrop-blur">
+        <h1 className="text-sm font-bold tracking-wide text-slate-200">Shader Paint Studio</h1>
+        <div className="text-xs text-slate-400">Oil Paint Impasto Simulation</div>
+      </header>
 
-      {/* メインレイアウト */}
-      <div className="flex-1 flex relative overflow-hidden">
-        {/* PC: 左サイドパネル（ツール＆ペン） */}
-        <aside className="hidden md:flex w-64 flex-col border-r border-zinc-800 bg-zinc-900 z-10 overflow-y-auto">
-          <ToolPanel />
+      {/* メインコンテンツ (レスポンシブ対応) */}
+      <main className="flex-1 p-4 grid grid-cols-1 lg:grid-cols-[280px_1fr_300px] gap-4 max-w-[1800px] w-full mx-auto">
+        {/* PC用左サイドバー / スマホ用では下に並ぶ */}
+        <aside className="order-2 lg:order-1 flex flex-col gap-4">
+          <PaintTools />
         </aside>
 
-        {/* 中央: キャンバス領域 */}
-        <main className="flex-1 flex flex-col relative">
+        {/* 中央キャンバス */}
+        <section className="order-1 lg:order-2 flex flex-col">
           <CanvasArea />
+        </section>
 
-          {/* スマホ用: ボトムツールバー */}
-          <div className="md:hidden bg-zinc-900 border-t border-zinc-800 p-2">
-            <ToolPanel />
-          </div>
-        </main>
-
-        {/* PC: 右サイドパネル（カラー関連） */}
-        <aside className="hidden md:flex w-64 flex-col border-l border-zinc-800 bg-zinc-900 z-10 overflow-y-auto">
+        {/* PC用右サイドバー / スマホ用では上部（またはツール下）に並ぶ */}
+        <aside className="order-3 lg:order-3 flex flex-col gap-4">
           <ColorPanel />
         </aside>
-      </div>
-
-      {/* スマホ用カラーモーダル */}
-      {isColorModalOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-end md:hidden animate-fade-in">
-          <div className="bg-zinc-900 w-full rounded-t-2xl border-t border-zinc-800 p-4 pb-8 relative shadow-2xl">
-            <button
-              onClick={() => setColorModalOpen(false)}
-              className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white"
-            >
-              <X size={20} />
-            </button>
-            <h3 className="text-sm font-bold text-zinc-200 mb-4">カラー・パレット選択</h3>
-            <ColorPanel />
-          </div>
-        </div>
-      )}
+      </main>
     </div>
   );
 }
