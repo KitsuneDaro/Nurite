@@ -14,8 +14,8 @@ export type CanvasDrawingHandle = {
     segments: readonly DrawingSegment[],
     style: BrushStrokeStyle,
     strokeIndex: number,
-    frameIndex: number,
-  ) => void
+    startingSegmentIndex: number,
+  ) => number
   setDebugMode: (enabled: boolean) => void
   setDebugField: (field: TextureDebugField) => void
   exportTextures: () => Promise<void>
@@ -33,8 +33,13 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
     const drawingRendererRef = useRef<CanvasDrawingRenderer | null>(null)
 
     useImperativeHandle(ref, () => ({
-      drawFrame(segments, style, strokeIndex, frameIndex) {
-        drawingRendererRef.current?.drawFrame(segments, style, strokeIndex, frameIndex)
+      drawFrame(segments, style, strokeIndex, startingSegmentIndex) {
+        return drawingRendererRef.current?.drawFrame(
+          segments,
+          style,
+          strokeIndex,
+          startingSegmentIndex,
+        ) ?? 0
       },
       setDebugMode(enabled) {
         drawingRendererRef.current?.setDebugMode(enabled)

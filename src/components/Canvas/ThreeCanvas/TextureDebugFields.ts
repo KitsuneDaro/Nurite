@@ -21,7 +21,7 @@ export const TEXTURE_DEBUG_GROUPS = [
     label: 'メタ情報',
     fields: [
       { id: 'stroke-index', label: 'ストロークID', mode: 0, source: 'metadata' },
-      { id: 'frame-index', label: 'フレーム数', mode: 1, source: 'metadata' },
+      { id: 'segment-index', label: 'セグメント番号', mode: 1, source: 'metadata' },
     ],
   },
   {

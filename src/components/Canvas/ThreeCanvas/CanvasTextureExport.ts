@@ -204,7 +204,7 @@ export async function downloadTextureArchive(
     textures: {
       metadata: {
         format: 'RGBA8',
-        channels: 'R=stroke index bits 0-7, G=bits 8-15, B low nibble=bits 16-19 and high nibble=frame bits 0-3, A=frame bits 4-11',
+        channels: 'R=stroke index bits 0-7, G=bits 8-15, B low nibble=bits 16-19 and high nibble=segment index bits 0-3, A=segment index bits 4-11.',
       },
       color: { format: 'RGBA8', channels: 'Linear RGBA color' },
       'drawing-state-a': {

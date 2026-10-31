@@ -8,7 +8,7 @@ import type {
   DrawingSegment,
 } from '../../../types'
 import type { CanvasDrawingHandle } from '../ThreeCanvas/ThreeCanvas'
-import { CANVAS_SIZE } from '../ThreeCanvas/CanvasDrawingRenderer'
+import { CANVAS_SIZE, MAX_STROKE_SEGMENTS } from '../ThreeCanvas/CanvasConstants'
 
 type CanvasStrokeOptions = {
   frameRef: RefObject<HTMLDivElement | null>
@@ -36,7 +36,7 @@ export function useCanvasStroke({
   const lastDrawnPointRef = useRef<DrawingPoint | null>(null)
   const previousDirectionRef = useRef<DrawingPoint | null>(null)
   const nextStrokeIndexRef = useRef(1)
-  const frameIndexRef = useRef(0)
+  const nextSegmentIndexRef = useRef(0)
   const activeStrokeIndexRef = useRef(0)
   const drawingFrameRef = useRef<number | null>(null)
   const drawingStyleRef = useRef<BrushStrokeStyle>({
@@ -95,16 +95,23 @@ export function useCanvasStroke({
       previousPoint = point
     }
 
-    drawingRef.current?.drawFrame(
+    const processedSegmentCount = drawingRef.current?.drawFrame(
       segments,
       drawingStyleRef.current,
       activeStrokeIndexRef.current,
-      frameIndexRef.current,
-    )
-    frameIndexRef.current = Math.min(frameIndexRef.current + 1, 0xFFF)
-    previousDirectionRef.current = previousDirection
-    lastDrawnPointRef.current = pending[pending.length - 1]
+      nextSegmentIndexRef.current,
+    ) ?? 0
+    nextSegmentIndexRef.current += processedSegmentCount
     pendingPointsRef.current = []
+    lastDrawnPointRef.current = pending[pending.length - 1] ?? null
+    if (nextSegmentIndexRef.current >= MAX_STROKE_SEGMENTS) {
+      activePointerRef.current = null
+      lastDrawnPointRef.current = null
+      previousDirectionRef.current = null
+      return
+    }
+
+    previousDirectionRef.current = previousDirection
   }, [drawingRef])
 
   const scheduleDrawingFrame = useCallback(() => {
@@ -154,7 +161,7 @@ export function useCanvasStroke({
     previousDirectionRef.current = null
     activeStrokeIndexRef.current = nextStrokeIndexRef.current
     nextStrokeIndexRef.current += 1
-    frameIndexRef.current = 0
+    nextSegmentIndexRef.current = 0
     pendingPointsRef.current = [canvasPoint.point]
     scheduleDrawingFrame()
   }, [flushPendingPoints, getCanvasPoint, scheduleDrawingFrame])

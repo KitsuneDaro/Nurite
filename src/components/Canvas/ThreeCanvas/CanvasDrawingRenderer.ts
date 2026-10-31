@@ -7,7 +7,7 @@ import {
   textureDebugVertexShader,
 } from './CanvasDrawingShader'
 import { downloadTextureArchive } from './CanvasTextureExport'
-import { CANVAS_SIZE } from './CanvasConstants'
+import { CANVAS_SIZE, MAX_STROKE_SEGMENTS } from './CanvasConstants'
 import {
   DEFAULT_TEXTURE_DEBUG_FIELD,
   getTextureDebugField,
@@ -87,7 +87,7 @@ export class CanvasDrawingRenderer {
         uShape: { value: 0 },
         uOutputType: { value: 0 },
         uStrokeIndex: { value: 0 },
-        uFrameIndex: { value: 0 },
+        uSegmentIndex: { value: 0 },
         uFollowDirection: { value: 0 },
         uColor: { value: new THREE.Color('#000000') },
         uResolution: { value: new THREE.Vector2(CANVAS_SIZE, CANVAS_SIZE) },
@@ -210,9 +210,9 @@ export class CanvasDrawingRenderer {
     segments: readonly DrawingSegment[],
     style: BrushStrokeStyle,
     strokeIndex: number,
-    frameIndex: number,
+    startingSegmentIndex: number,
   ) {
-    if (this.disposed || segments.length === 0) return
+    if (this.disposed || segments.length === 0) return 0
 
     const previousAutoClear = this.renderer.autoClear
     this.renderer.autoClear = false
@@ -225,17 +225,21 @@ export class CanvasDrawingRenderer {
     this.brushMaterial.uniforms.uShape.value =
       style.shape === 'round' ? 0 : style.shape === 'flat' ? 1 : 2
     this.brushMaterial.uniforms.uStrokeIndex.value = strokeIndex
-    this.brushMaterial.uniforms.uFrameIndex.value = frameIndex
     this.brushMaterial.uniforms.uFollowDirection.value = style.followDirection ? 1 : 0
     this.brushMaterial.uniforms.uColor.value.set(style.eraserEnabled ? '#FFFFFF' : style.color)
 
+    let processedSegmentCount = 0
     for (const segment of segments) {
+      const segmentIndex = startingSegmentIndex + processedSegmentCount
+      if (segmentIndex >= MAX_STROKE_SEGMENTS) break
+
       this.setSegmentUniforms(
         segment.start,
         segment.end,
         Math.min(MAX_BRUSH_SIZE, Math.max(1, style.size)),
         segment.previousDirection,
       )
+      this.brushMaterial.uniforms.uSegmentIndex.value = segmentIndex
       this.brushMaterial.uniforms.uVelocity.value.set(
         segment.end.x - segment.start.x,
         segment.end.y - segment.start.y,
@@ -248,11 +252,13 @@ export class CanvasDrawingRenderer {
       this.renderSegmentPass(this.drawingStateTargetA, 2, this.metadataTarget.texture)
       this.renderSegmentPass(this.drawingStateTargetB, 3, this.metadataTarget.texture)
       this.renderSegmentPass(this.colorTarget, 1, this.metadataTarget.texture)
+      processedSegmentCount += 1
     }
 
     this.renderer.setScissorTest(false)
     this.renderer.autoClear = previousAutoClear
     this.renderOutput()
+    return processedSegmentCount
   }
 
   dispose() {

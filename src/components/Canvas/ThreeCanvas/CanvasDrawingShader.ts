@@ -14,7 +14,7 @@ export const brushFragmentShader = `
   uniform int uShape;
   uniform int uOutputType;
   uniform int uStrokeIndex;
-  uniform int uFrameIndex;
+  uniform int uSegmentIndex;
   uniform float uFollowDirection;
   uniform vec3 uColor;
   uniform vec2 uResolution;
@@ -339,13 +339,13 @@ export const brushFragmentShader = `
     float strokeLow = mod(float(uStrokeIndex), 256.0);
     float strokeMiddle = mod(floor(float(uStrokeIndex) / 256.0), 256.0);
     float strokeHighAndFrameLow = mod(floor(float(uStrokeIndex) / 65536.0), 16.0)
-      + mod(float(uFrameIndex), 16.0) * 16.0;
-    float frameHigh = floor(float(uFrameIndex) / 16.0);
+      + mod(float(uSegmentIndex), 16.0) * 16.0;
+    float segmentHigh = floor(float(uSegmentIndex) / 16.0);
     vec4 metadataKey = vec4(
       strokeLow,
       strokeMiddle,
       strokeHighAndFrameLow,
-      frameHigh
+      segmentHigh
     ) / 255.0;
 
     if (uOutputType != 0) {
@@ -424,8 +424,8 @@ export const textureDebugFragmentShader = `
       float strokeIndex = bytes.r + bytes.g * 256.0 + mod(bytes.b, 16.0) * 65536.0;
       debugValue = log2(strokeIndex + 1.0) / 20.0;
     } else if (uDebugField == 1) {
-      float frameIndex = floor(bytes.b / 16.0) + bytes.a * 16.0;
-      debugValue = frameIndex / 4095.0;
+      float segmentIndex = floor(bytes.b / 16.0) + bytes.a * 16.0;
+      debugValue = segmentIndex / 4095.0;
     } else if (uDebugField >= 2 && uDebugField <= 5) {
       int channel = uDebugField - 2;
       debugValue = channel == 0 ? value.r
