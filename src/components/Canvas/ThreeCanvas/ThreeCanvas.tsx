@@ -18,6 +18,7 @@ export type CanvasDrawingHandle = {
   ) => number
   setDebugMode: (enabled: boolean) => void
   setDebugField: (field: TextureDebugField) => void
+  exportCanvas: () => Promise<void>
   exportTextures: () => Promise<void>
 }
 
@@ -46,6 +47,10 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
       },
       setDebugField(field) {
         drawingRendererRef.current?.setDebugField(field)
+      },
+      exportCanvas() {
+        return drawingRendererRef.current?.exportCanvas()
+          ?? Promise.reject(new Error('The drawing renderer is not ready.'))
       },
       exportTextures() {
         return drawingRendererRef.current?.exportTextures()

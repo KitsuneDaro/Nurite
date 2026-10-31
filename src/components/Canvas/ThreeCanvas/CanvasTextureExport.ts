@@ -225,10 +225,14 @@ export async function downloadTextureArchive(
   })
 
   const archive = createZip(entries)
-  const url = URL.createObjectURL(archive)
+  downloadBlob(archive, 'webpainter-textures.zip')
+}
+
+export function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
-  link.download = 'webpainter-textures.zip'
+  link.download = filename
   document.body.append(link)
   try {
     link.click()

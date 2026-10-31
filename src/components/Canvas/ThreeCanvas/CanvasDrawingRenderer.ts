@@ -9,7 +9,7 @@ import {
   textureDebugFragmentShader,
   textureDebugVertexShader,
 } from './CanvasDrawingShader'
-import { downloadTextureArchive } from './CanvasTextureExport'
+import { downloadBlob, downloadTextureArchive } from './CanvasTextureExport'
 import { CANVAS_SIZE, MAX_STROKE_SEGMENTS } from './CanvasConstants'
 import {
   DEFAULT_TEXTURE_DEBUG_FIELD,
@@ -58,6 +58,7 @@ export class CanvasDrawingRenderer {
   private readonly colorTarget: THREE.WebGLRenderTarget
   private readonly drawingStateTargetA: THREE.WebGLRenderTarget
   private readonly drawingStateTargetB: THREE.WebGLRenderTarget
+  private readonly canvasExportTarget: THREE.WebGLRenderTarget
   private readonly metadataMaterial: THREE.ShaderMaterial
   private readonly colorMaterial: THREE.ShaderMaterial
   private readonly drawingStateMaterialA: THREE.ShaderMaterial
@@ -90,6 +91,8 @@ export class CanvasDrawingRenderer {
     this.colorTarget = createRenderTarget()
     this.drawingStateTargetA = createRenderTarget()
     this.drawingStateTargetB = createRenderTarget()
+    this.canvasExportTarget = createRenderTarget()
+    this.canvasExportTarget.texture.colorSpace = THREE.SRGBColorSpace
 
     this.metadataMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -261,6 +264,51 @@ export class CanvasDrawingRenderer {
     await downloadTextureArchive(TEXTURE_NAMES, buffers)
   }
 
+  async exportCanvas() {
+    if (this.disposed) throw new Error('Cannot export the canvas after the renderer is disposed.')
+
+    this.renderer.setRenderTarget(this.canvasExportTarget)
+    this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    this.renderer.setScissorTest(false)
+    this.renderer.clear(true, false, false)
+    this.renderer.render(
+      this.debugMode ? this.debugScene : this.displayScene,
+      this.debugMode ? this.debugCamera : this.displayCamera,
+    )
+    const pixels = new Uint8Array(CANVAS_SIZE * CANVAS_SIZE * 4)
+    this.renderer.readRenderTargetPixels(
+      this.canvasExportTarget,
+      0,
+      0,
+      CANVAS_SIZE,
+      CANVAS_SIZE,
+      pixels,
+    )
+    this.renderOutput()
+
+    const imageData = new Uint8ClampedArray(pixels.length)
+    const rowLength = CANVAS_SIZE * 4
+    for (let y = 0; y < CANVAS_SIZE; y += 1) {
+      const sourceOffset = (CANVAS_SIZE - 1 - y) * rowLength
+      imageData.set(pixels.subarray(sourceOffset, sourceOffset + rowLength), y * rowLength)
+    }
+
+    const canvas = document.createElement('canvas')
+    canvas.width = CANVAS_SIZE
+    canvas.height = CANVAS_SIZE
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('Could not create a 2D context for the canvas image.')
+    context.putImageData(new ImageData(imageData, CANVAS_SIZE, CANVAS_SIZE), 0, 0)
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((result) => {
+        if (result) resolve(result)
+        else reject(new Error('Could not encode the canvas image.'))
+      }, 'image/png')
+    })
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+    downloadBlob(blob, `webpainter-${timestamp}.png`)
+  }
+
   drawFrame(
     segments: readonly DrawingSegment[],
     style: BrushStrokeStyle,
@@ -363,6 +411,7 @@ export class CanvasDrawingRenderer {
     this.colorTarget.dispose()
     this.drawingStateTargetA.dispose()
     this.drawingStateTargetB.dispose()
+    this.canvasExportTarget.dispose()
     this.debugScene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
       object.geometry.dispose()

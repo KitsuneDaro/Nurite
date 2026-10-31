@@ -32,6 +32,8 @@ function App() {
   const [debugField, setDebugField] = useState<TextureDebugField>(DEFAULT_TEXTURE_DEBUG_FIELD)
   const [exportingTextures, setExportingTextures] = useState(false)
   const [textureExportStatus, setTextureExportStatus] = useState<string | null>(null)
+  const [exportingCanvas, setExportingCanvas] = useState(false)
+  const [canvasExportStatus, setCanvasExportStatus] = useState<string | null>(null)
   const drawingRef = useRef<CanvasDrawingHandle>(null)
   const paletteColors = usePaletteStore((state) => state.colors)
   const selectedPalette = usePaletteStore((state) => state.selectedIndex)
@@ -67,9 +69,32 @@ function App() {
     }
   }
 
+  async function exportCanvas() {
+    if (!drawingRef.current) {
+      setCanvasExportStatus('キャンバスの準備ができていません')
+      return
+    }
+
+    setExportingCanvas(true)
+    setCanvasExportStatus(null)
+    try {
+      await drawingRef.current.exportCanvas()
+      setCanvasExportStatus('キャンバス画像を保存しました')
+    } catch (error) {
+      console.error('Failed to export the canvas image.', error)
+      setCanvasExportStatus('キャンバス画像のエクスポートに失敗しました')
+    } finally {
+      setExportingCanvas(false)
+    }
+  }
+
   return (
     <div className="app-shell">
-      <TopBar />
+      <TopBar
+        onExportCanvas={exportCanvas}
+        exportingCanvas={exportingCanvas}
+        canvasExportStatus={canvasExportStatus}
+      />
 
       <main className="workspace">
         <ToolsPanel
