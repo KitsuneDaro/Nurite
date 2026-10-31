@@ -4,40 +4,47 @@
   overflow-y: auto;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 760px) {
   .tools-panel {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 13px;
+    display: none;
   }
 
-  @media (max-width: 760px) {
-    .tools-panel {
-      display: none;
-    }
+  .tools-panel.mobile-panel-open {
+    position: absolute;
+    z-index: 10;
+    top: 8px;
+    right: 60px;
+    bottom: 8px;
+    width: min(340px, calc(100% - 76px));
+    display: flex;
+    overflow-y: auto;
+  }
+}
 
-    .tools-panel.mobile-panel-open {
-      position: absolute;
-      z-index: 10;
-      top: 10px;
-      bottom: 10px;
-      left: 12px;
-      width: min(340px, calc(100% - 24px));
-      max-height: calc(100% - 20px);
-      display: flex;
-      overflow-y: auto;
-    }
+@media (max-width: 520px) {
+  .tools-panel.mobile-panel-open {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-content: start;
+    column-gap: 13px;
   }
 
   .tools-panel .panel-heading,
   .tools-panel .eraser-toggle,
   .tools-panel .history-buttons,
-  .tools-panel .file-buttons,
   .tools-panel .panel-footer {
     grid-column: 1 / -1;
   }
 
   .tools-panel .panel-heading {
     margin-bottom: 13px;
+  }
+
+  .tools-panel .control-section {
+    margin-bottom: 13px;
+  }
+
+  .tools-panel .eraser-toggle {
+    margin-bottom: 12px;
   }
 }

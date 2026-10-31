@@ -28,6 +28,7 @@
 
 .app-footer {
   min-height: 34px;
+  flex: 0 0 34px;
   padding: 0 28px;
   display: flex;
   align-items: center;
@@ -64,7 +65,8 @@
   .workspace {
     position: relative;
     display: block;
-    padding: 8px 12px 12px;
+    width: 100%;
+    padding: 8px;
   }
 
   .canvas-workspace {
@@ -72,14 +74,15 @@
   }
 
   .app-footer {
-    display: none;
+    padding: 0 12px;
+    font-size: 8px;
   }
 }
 
 @media (max-width: 520px) {
   .workspace {
-    padding-right: 8px;
-    padding-left: 8px;
+    padding-right: 6px;
+    padding-left: 6px;
   }
 }
 

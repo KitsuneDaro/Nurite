@@ -19,6 +19,8 @@ export function MobilePanelNav({ activePanel, onPanelSelect }: MobilePanelNavPro
         className={activePanel === 'tools' ? 'active' : ''}
         onClick={() => togglePanel('tools')}
         aria-pressed={activePanel === 'tools'}
+        aria-label="ペイントツール"
+        title="ペイントツール"
       >
         <Brush size={19} />
         <span>ツール</span>
@@ -27,6 +29,8 @@ export function MobilePanelNav({ activePanel, onPanelSelect }: MobilePanelNavPro
         className={activePanel === 'color' ? 'active' : ''}
         onClick={() => togglePanel('color')}
         aria-pressed={activePanel === 'color'}
+        aria-label="カラーと設定"
+        title="カラーと設定"
       >
         <Palette size={19} />
         <span>カラー</span>
