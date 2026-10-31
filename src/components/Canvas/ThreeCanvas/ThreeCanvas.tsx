@@ -6,7 +6,11 @@ import './ThreeCanvas.css'
 export type CanvasRenderStatus = 'loading' | 'ready' | 'error'
 
 export type CanvasDrawingHandle = {
-  drawStroke: (points: readonly DrawingPoint[], style: BrushStrokeStyle) => void
+  drawStroke: (
+    points: readonly DrawingPoint[],
+    style: BrushStrokeStyle,
+    previousDirection: DrawingPoint | null,
+  ) => void
 }
 
 type ThreeCanvasProps = {
@@ -19,8 +23,8 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
     const drawingRendererRef = useRef<CanvasDrawingRenderer | null>(null)
 
     useImperativeHandle(ref, () => ({
-      drawStroke(points, style) {
-        drawingRendererRef.current?.drawStroke(points, style)
+      drawStroke(points, style, previousDirection) {
+        drawingRendererRef.current?.drawStroke(points, style, previousDirection)
       },
     }), [])
 

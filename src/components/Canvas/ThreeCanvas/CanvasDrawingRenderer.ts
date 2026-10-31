@@ -42,6 +42,7 @@ export class CanvasDrawingRenderer {
       uniforms: {
         uStart: { value: new THREE.Vector2() },
         uEnd: { value: new THREE.Vector2() },
+        uPreviousDirection: { value: new THREE.Vector2() },
         uBrushSize: { value: 1 },
         uShape: { value: 0 },
         uFollowDirection: { value: 0 },
@@ -84,7 +85,11 @@ export class CanvasDrawingRenderer {
     this.renderer.render(this.displayScene, this.displayCamera)
   }
 
-  drawStroke(points: readonly DrawingPoint[], style: BrushStrokeStyle) {
+  drawStroke(
+    points: readonly DrawingPoint[],
+    style: BrushStrokeStyle,
+    previousDirection: DrawingPoint | null = null,
+  ) {
     if (this.disposed || points.length === 0) return
 
     const previousAutoClear = this.renderer.autoClear
@@ -102,7 +107,10 @@ export class CanvasDrawingRenderer {
     for (let index = 0; index < segmentCount; index += 1) {
       const start = points[index] ?? points[0]
       const end = points[index + 1] ?? start
-      this.renderSegment(start, end, style.size)
+      const segmentPreviousDirection = index > 0
+        ? this.getSegmentDirection(points[index - 1] ?? start, start)
+        : previousDirection
+      this.renderSegment(start, end, style.size, segmentPreviousDirection)
     }
 
     this.renderer.setScissorTest(false)
@@ -131,7 +139,19 @@ export class CanvasDrawingRenderer {
     this.renderer.domElement.remove()
   }
 
-  private renderSegment(start: DrawingPoint, end: DrawingPoint, brushSize: number) {
+  private getSegmentDirection(start: DrawingPoint, end: DrawingPoint): DrawingPoint {
+    return {
+      x: end.x - start.x,
+      y: end.y - start.y,
+    }
+  }
+
+  private renderSegment(
+    start: DrawingPoint,
+    end: DrawingPoint,
+    brushSize: number,
+    previousDirection: DrawingPoint | null,
+  ) {
     const boundsPadding = Math.ceil(brushSize) + 2
     const left = Math.max(0, Math.floor(Math.min(start.x, end.x) - boundsPadding))
     const right = Math.min(CANVAS_SIZE, Math.ceil(Math.max(start.x, end.x) + boundsPadding))
@@ -141,6 +161,10 @@ export class CanvasDrawingRenderer {
 
     this.brushMaterial.uniforms.uStart.value.set(start.x, start.y)
     this.brushMaterial.uniforms.uEnd.value.set(end.x, end.y)
+    this.brushMaterial.uniforms.uPreviousDirection.value.set(
+      previousDirection?.x ?? 0,
+      previousDirection?.y ?? 0,
+    )
     this.brushMesh.position.set((left + right) / 2, (top + bottom) / 2, 0)
     this.brushMesh.scale.set(right - left, bottom - top, 1)
     this.renderer.setScissor(left, CANVAS_SIZE - bottom, right - left, bottom - top)

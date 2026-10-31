@@ -26,6 +26,7 @@ export function useCanvasStroke({
   const activePointerRef = useRef<number | null>(null)
   const pendingPointsRef = useRef<DrawingPoint[]>([])
   const lastDrawnPointRef = useRef<DrawingPoint | null>(null)
+  const previousDirectionRef = useRef<DrawingPoint | null>(null)
   const drawingFrameRef = useRef<number | null>(null)
   const drawingStyleRef = useRef<BrushStrokeStyle>({
     shape: brushShape,
@@ -56,7 +57,25 @@ export function useCanvasStroke({
     const points = lastDrawnPointRef.current
       ? [lastDrawnPointRef.current, ...pending]
       : pending
-    drawingRef.current?.drawStroke(points, drawingStyleRef.current)
+    drawingRef.current?.drawStroke(
+      points,
+      drawingStyleRef.current,
+      previousDirectionRef.current,
+    )
+    for (let index = points.length - 1; index > 0; index -= 1) {
+      const current = points[index]
+      const previous = points[index - 1]
+      if (!current || !previous) continue
+
+      const direction = {
+        x: current.x - previous.x,
+        y: current.y - previous.y,
+      }
+      if (direction.x !== 0 || direction.y !== 0) {
+        previousDirectionRef.current = direction
+        break
+      }
+    }
     lastDrawnPointRef.current = pending[pending.length - 1]
     pendingPointsRef.current = []
   }, [drawingRef])
@@ -101,6 +120,7 @@ export function useCanvasStroke({
     flushPendingPoints()
     activePointerRef.current = pointerId
     lastDrawnPointRef.current = null
+    previousDirectionRef.current = null
     pendingPointsRef.current = [canvasPoint.point]
     scheduleDrawingFrame()
   }, [flushPendingPoints, getCanvasPoint, scheduleDrawingFrame])
@@ -120,6 +140,7 @@ export function useCanvasStroke({
     flushPendingPoints()
     activePointerRef.current = null
     lastDrawnPointRef.current = null
+    previousDirectionRef.current = null
   }, [flushPendingPoints])
 
   const cancelStroke = useCallback(() => {
