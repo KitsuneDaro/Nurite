@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { BrushShape, DrawingPoint } from '../../../types'
+import type { BrushShape, BrushType, DrawingPoint } from '../../../types'
+import type { RefObject } from 'react'
 import {
   ThreeCanvas,
   type CanvasDrawingHandle,
@@ -13,10 +14,13 @@ type CanvasWorkspaceProps = {
   zoom: number
   onZoomChange: (zoom: number) => void
   brushShape: BrushShape
+  paintType: BrushType
   brushSize: number
   brushColor: string
   followDirection: boolean
   eraserEnabled: boolean
+  debugMode: boolean
+  drawingRef: RefObject<CanvasDrawingHandle | null>
 }
 
 type Point = DrawingPoint
@@ -42,20 +46,23 @@ export function CanvasWorkspace({
   zoom,
   onZoomChange,
   brushShape,
+  paintType,
   brushSize,
   brushColor,
   followDirection,
   eraserEnabled,
+  debugMode,
+  drawingRef,
 }: CanvasWorkspaceProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
-  const drawingRef = useRef<CanvasDrawingHandle>(null)
   const touchPointsRef = useRef(new Map<number, Point>())
   const pinchStateRef = useRef<PinchState | null>(null)
   const stroke = useCanvasStroke({
     frameRef,
     drawingRef,
     brushShape,
+    paintType,
     brushSize,
     brushColor,
     followDirection,
@@ -179,7 +186,11 @@ export function CanvasWorkspace({
               transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
             }}
           >
-            <ThreeCanvas ref={drawingRef} onStatusChange={handleStatusChange} />
+            <ThreeCanvas
+              ref={drawingRef}
+              debugMode={debugMode}
+              onStatusChange={handleStatusChange}
+            />
           </div>
         </div>
         <span className="canvas-dimension dimension-top">1024 px</span>

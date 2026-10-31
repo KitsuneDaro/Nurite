@@ -16,6 +16,7 @@ export type DrawingSegment = {
 
 export type BrushStrokeStyle = {
   shape: BrushShape
+  paintType: BrushType
   size: number
   color: string
   followDirection: boolean

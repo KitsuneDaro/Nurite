@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import type { RefObject } from 'react'
 import type {
   BrushShape,
+  BrushType,
   BrushStrokeStyle,
   DrawingPoint,
   DrawingSegment,
@@ -13,6 +14,7 @@ type CanvasStrokeOptions = {
   frameRef: RefObject<HTMLDivElement | null>
   drawingRef: RefObject<CanvasDrawingHandle | null>
   brushShape: BrushShape
+  paintType: BrushType
   brushSize: number
   brushColor: string
   followDirection: boolean
@@ -23,6 +25,7 @@ export function useCanvasStroke({
   frameRef,
   drawingRef,
   brushShape,
+  paintType,
   brushSize,
   brushColor,
   followDirection,
@@ -32,9 +35,13 @@ export function useCanvasStroke({
   const pendingPointsRef = useRef<DrawingPoint[]>([])
   const lastDrawnPointRef = useRef<DrawingPoint | null>(null)
   const previousDirectionRef = useRef<DrawingPoint | null>(null)
+  const nextStrokeIndexRef = useRef(0)
+  const frameIndexRef = useRef(0)
+  const activeStrokeIndexRef = useRef(0)
   const drawingFrameRef = useRef<number | null>(null)
   const drawingStyleRef = useRef<BrushStrokeStyle>({
     shape: brushShape,
+    paintType,
     size: brushSize,
     color: brushColor,
     followDirection,
@@ -44,12 +51,13 @@ export function useCanvasStroke({
   useLayoutEffect(() => {
     drawingStyleRef.current = {
       shape: brushShape,
+      paintType,
       size: brushSize,
       color: brushColor,
       followDirection,
       eraserEnabled,
     }
-  }, [brushShape, brushColor, brushSize, eraserEnabled, followDirection])
+  }, [brushShape, brushColor, brushSize, eraserEnabled, followDirection, paintType])
 
   const flushPendingPoints = useCallback(() => {
     if (drawingFrameRef.current !== null) {
@@ -87,7 +95,13 @@ export function useCanvasStroke({
       previousPoint = point
     }
 
-    drawingRef.current?.drawFrame(segments, drawingStyleRef.current)
+    drawingRef.current?.drawFrame(
+      segments,
+      drawingStyleRef.current,
+      activeStrokeIndexRef.current,
+      frameIndexRef.current,
+    )
+    frameIndexRef.current = Math.min(frameIndexRef.current + 1, 0xFFF)
     previousDirectionRef.current = previousDirection
     lastDrawnPointRef.current = pending[pending.length - 1]
     pendingPointsRef.current = []
@@ -131,9 +145,16 @@ export function useCanvasStroke({
     if (!canvasPoint?.inside) return
 
     flushPendingPoints()
+    if (nextStrokeIndexRef.current > 0xFFFFF) {
+      console.error('Canvas drawing has reached the metadata texture stroke-index limit.')
+      return
+    }
     activePointerRef.current = pointerId
     lastDrawnPointRef.current = null
     previousDirectionRef.current = null
+    activeStrokeIndexRef.current = nextStrokeIndexRef.current
+    nextStrokeIndexRef.current += 1
+    frameIndexRef.current = 0
     pendingPointsRef.current = [canvasPoint.point]
     scheduleDrawingFrame()
   }, [flushPendingPoints, getCanvasPoint, scheduleDrawingFrame])

@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { HslColor } from 'react-colorful'
 import type { BrushShape, BrushType } from './types'
+import type { CanvasDrawingHandle } from './components/Canvas/ThreeCanvas/ThreeCanvas'
 import { CanvasWorkspace } from './components/Canvas/CanvasWorkspace/CanvasWorkspace'
 import { CanvasToolbar } from './components/Canvas/CanvasToolbar/CanvasToolbar'
 import { ColorPanel } from './components/Color/ColorPanel/ColorPanel'
@@ -23,6 +24,10 @@ function App() {
   const [eraserEnabled, setEraserEnabled] = useState(false)
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
+  const [debugMode, setDebugMode] = useState(false)
+  const [exportingTextures, setExportingTextures] = useState(false)
+  const [textureExportStatus, setTextureExportStatus] = useState<string | null>(null)
+  const drawingRef = useRef<CanvasDrawingHandle>(null)
   const paletteColors = usePaletteStore((state) => state.colors)
   const selectedPalette = usePaletteStore((state) => state.selectedIndex)
   const selectPaletteColor = usePaletteStore((state) => state.selectColor)
@@ -36,6 +41,25 @@ function App() {
   function updateColor(nextColor: HslColor) {
     setColor(nextColor)
     updateSelectedPaletteColor(hslToHex(nextColor))
+  }
+
+  async function exportTextures() {
+    if (!drawingRef.current) {
+      setTextureExportStatus('キャンバスの準備ができていません')
+      return
+    }
+
+    setExportingTextures(true)
+    setTextureExportStatus(null)
+    try {
+      await drawingRef.current.exportTextures()
+      setTextureExportStatus('テクスチャZIPを作成しました')
+    } catch (error) {
+      console.error('Failed to export canvas textures.', error)
+      setTextureExportStatus('テクスチャのエクスポートに失敗しました')
+    } finally {
+      setExportingTextures(false)
+    }
   }
 
   return (
@@ -54,15 +78,26 @@ function App() {
           onEraserChange={setEraserEnabled}
           onFollowDirectionChange={setFollowDirection}
         />
-        <CanvasToolbar zoom={canvasZoom} onZoomChange={setCanvasZoom} />
+        <CanvasToolbar
+          zoom={canvasZoom}
+          onZoomChange={setCanvasZoom}
+          debugMode={debugMode}
+          onDebugModeChange={setDebugMode}
+          onExportTextures={exportTextures}
+          exportingTextures={exportingTextures}
+          textureExportStatus={textureExportStatus}
+        />
         <CanvasWorkspace
           zoom={canvasZoom}
           onZoomChange={setCanvasZoom}
           brushShape={brushShape}
+          paintType={paintType}
           brushSize={brushSize}
           brushColor={hslToHex(color)}
           followDirection={followDirection}
           eraserEnabled={eraserEnabled}
+          debugMode={debugMode}
+          drawingRef={drawingRef}
         />
         <ColorPanel
           mobileOpen={activeMobilePanel === 'color'}

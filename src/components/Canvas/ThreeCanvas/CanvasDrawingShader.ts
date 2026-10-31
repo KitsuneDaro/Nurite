@@ -8,11 +8,19 @@ export const brushFragmentShader = `
   uniform vec2 uStart;
   uniform vec2 uEnd;
   uniform vec2 uPreviousDirection;
+  uniform vec2 uVelocity;
+  uniform vec2 uAcceleration;
   uniform float uBrushSize;
   uniform int uShape;
+  uniform int uBrushShapeId;
+  uniform int uPaintTypeId;
+  uniform int uOutputType;
+  uniform int uStrokeIndex;
+  uniform int uFrameIndex;
   uniform float uFollowDirection;
   uniform vec3 uColor;
   uniform vec2 uResolution;
+  uniform sampler2D uMetadataTexture;
 
   bool coversRoundBrush(
     vec2 relativePoint,
@@ -92,19 +100,18 @@ export const brushFragmentShader = `
     float brushSize,
     float followDirection
   ) {
+    bool covered = false;
     if (followDirection > 0.5) {
       float along = dot(relativePoint, tangent);
       float across = dot(relativePoint, normal);
       bool onSegment = along >= 0.0 && along <= segmentLength && abs(across) <= halfSize;
-      return onSegment || coversDirectionalJoin(
+      covered = onSegment || coversDirectionalJoin(
         relativePoint, previousDirection, normal, halfSize
       );
+    } else {
+      covered = coversFixedFlatSegment(relativePoint, segment, halfSize, brushSize);
     }
-
-    bool onCurrentSegment = coversFixedFlatSegment(
-      relativePoint, segment, halfSize, brushSize
-    );
-    return onCurrentSegment;
+    return covered;
   }
 
   bool coversSquareBrush(
@@ -118,22 +125,24 @@ export const brushFragmentShader = `
     float halfSize,
     float followDirection
   ) {
+    bool covered = false;
     if (followDirection > 0.5 && segmentLength > 0.0) {
       float along = dot(relativePoint, tangent);
       float across = dot(relativePoint, normal);
       bool onSegment = along >= -halfSize && along <= segmentLength + halfSize
         && abs(across) <= halfSize;
-      return onSegment || coversDirectionalJoin(
+      covered = onSegment || coversDirectionalJoin(
         relativePoint, previousDirection, normal, halfSize
       );
+    } else {
+      float along = segmentLength > 0.0
+        ? clamp(dot(relativePoint, tangent), 0.0, segmentLength)
+        : 0.0;
+      vec2 nearestPoint = start + tangent * along;
+      vec2 distanceFromBrush = abs(point - nearestPoint);
+      covered = distanceFromBrush.x <= halfSize && distanceFromBrush.y <= halfSize;
     }
-
-    float along = segmentLength > 0.0
-      ? clamp(dot(relativePoint, tangent), 0.0, segmentLength)
-      : 0.0;
-    vec2 nearestPoint = start + tangent * along;
-    vec2 distanceFromBrush = abs(point - nearestPoint);
-    return distanceFromBrush.x <= halfSize && distanceFromBrush.y <= halfSize;
+    return covered;
   }
 
   void main() {
@@ -179,6 +188,70 @@ export const brushFragmentShader = `
     }
 
     if (!covered) discard;
-    gl_FragColor = vec4(uColor, 1.0);
+
+    float strokeLow = mod(float(uStrokeIndex), 256.0);
+    float strokeMiddle = mod(floor(float(uStrokeIndex) / 256.0), 256.0);
+    float strokeHighAndFrameLow = mod(floor(float(uStrokeIndex) / 65536.0), 16.0)
+      + mod(float(uFrameIndex), 16.0) * 16.0;
+    float frameHigh = floor(float(uFrameIndex) / 16.0);
+    vec4 metadataKey = vec4(
+      strokeLow,
+      strokeMiddle,
+      strokeHighAndFrameLow,
+      frameHigh
+    ) / 255.0;
+
+    if (uOutputType != 0) {
+      vec4 storedMetadata = texture2D(uMetadataTexture, gl_FragCoord.xy / uResolution);
+      if (any(greaterThan(abs(storedMetadata - metadataKey), vec4(0.5 / 255.0)))) {
+        discard;
+      }
+    }
+
+    if (uOutputType == 0) {
+      gl_FragColor = metadataKey;
+    } else if (uOutputType == 1) {
+      gl_FragColor = vec4(uColor, 1.0);
+    } else if (uOutputType == 2) {
+      float packedBrushAndPaint = float(uBrushShapeId * 8 + uPaintTypeId);
+      gl_FragColor = vec4(
+        floor(clamp(uEnd.x, 0.0, 1023.0) + 0.5),
+        floor(clamp(uEnd.y, 0.0, 1023.0) + 0.5),
+        packedBrushAndPaint,
+        floor(uBrushSize + 0.5)
+      );
+    } else {
+      vec2 velocity = clamp(uVelocity, vec2(-128.0), vec2(127.0));
+      vec2 acceleration = clamp(uAcceleration, vec2(-128.0), vec2(127.0));
+      gl_FragColor = vec4(
+        (velocity + 128.0) / 255.0,
+        (acceleration + 128.0) / 255.0
+      );
+    }
+  }
+`
+
+export const textureDebugFragmentShader = `
+  varying vec2 vUv;
+  uniform sampler2D uTexture;
+  uniform int uTextureKind;
+
+  void main() {
+    vec4 value = texture2D(uTexture, vUv);
+    vec4 debugValue = value;
+    if (uTextureKind == 2) {
+      debugValue = vec4(value.r / 1023.0, value.g / 1023.0, value.b / 63.0, value.a / 255.0);
+    }
+    gl_FragColor = vec4(debugValue.rgb, 1.0);
+    #include <colorspace_fragment>
+  }
+`
+
+export const textureDebugVertexShader = `
+  varying vec2 vUv;
+
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   }
 `
