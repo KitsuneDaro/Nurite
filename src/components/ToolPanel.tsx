@@ -1,5 +1,6 @@
 import React from 'react';
-import { usePaintStore, BrushShape, BrushType } from '../store/usePaintStore';
+import { usePaintStore } from '../store/usePaintStore';
+import type { BrushShape, BrushType } from '../store/usePaintStore';
 import { Eraser, Circle, Square, Minus } from 'lucide-react';
 
 export const ToolPanel: React.FC = () => {
@@ -14,13 +15,13 @@ export const ToolPanel: React.FC = () => {
     toggleEraser,
   } = usePaintStore();
 
-  const shapes: { id: BrushShape; label: string; icon: React.ReactNode } = [
+  const shapes: { id: BrushShape; label: string; icon: React.ReactNode }[] = [
     { id: 'round', label: '丸筆', icon: <Circle size={18} /> },
     { id: 'flat', label: '平筆', icon: <Minus size={18} className="rotate-45" /> },
     { id: 'square', label: '四角筆', icon: <Square size={18} /> },
   ];
 
-  const types: { id: BrushType; label: string } = [
+  const types: { id: BrushType; label: string }[] = [
     { id: 'normal', label: 'ノーマル' },
     { id: 'oil', label: '油彩（厚塗り）' },
     { id: 'watercolor', label: '水彩' },
