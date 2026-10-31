@@ -7,6 +7,7 @@
 
 .canvas-stage {
   position: relative;
+  container-type: size;
   min-height: 0;
   padding: 29px 26px;
   display: flex;
@@ -17,9 +18,8 @@
 
 .canvas-frame {
   position: relative;
-  width: min(100%, calc(100dvh - 260px));
+  width: min(100cqw, 100cqh, calc(100dvh - 260px));
   aspect-ratio: 1;
-  max-height: 100%;
   overflow: hidden;
   border: 1px solid rgba(183, 197, 211, 0.3);
   background: #14213b;
@@ -81,7 +81,7 @@
   }
 
   .canvas-frame {
-    width: min(100%, 60vh);
+    width: min(100cqw, 100cqh, 60vh);
   }
 
   .dimension-top {
@@ -99,6 +99,6 @@
   }
 
   .canvas-frame {
-    width: min(100%, 48vh);
+    width: min(100cqw, 100cqh, 48vh);
   }
 }
