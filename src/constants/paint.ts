@@ -4,15 +4,8 @@ import {
   Sparkles,
   Square,
   Waves,
-  type LucideIcon,
 } from 'lucide-react'
-import type { BrushShape, BrushType } from '../types'
-
-type ToolOption<Id extends string> = {
-  id: Id
-  label: string
-  Icon: LucideIcon
-}
+import type { BrushShape, BrushType, ToolOption } from '../types'
 
 export const palette = [
   '#1d9a95', '#f3e99b', '#a8c987', '#398773', '#767b51', '#527b72',
@@ -22,13 +15,13 @@ export const palette = [
 ] as const
 
 export const brushShapes = [
-  { id: 'round', label: '丸筆', Icon: Circle },
-  { id: 'flat', label: '平筆', Icon: Brush },
-  { id: 'square', label: '四角筆', Icon: Square },
+  { id: 'round', label: '丸筆', Icon: Circle, iconSize: 20 },
+  { id: 'flat', label: '平筆', Icon: Brush, iconSize: 20 },
+  { id: 'square', label: '四角筆', Icon: Square, iconSize: 20 },
 ] satisfies readonly ToolOption<BrushShape>[]
 
 export const paintTypes = [
-  { id: 'normal', label: 'ノーマル', Icon: Brush },
-  { id: 'oil', label: '油彩', Icon: Sparkles },
-  { id: 'watercolor', label: '水彩', Icon: Waves },
+  { id: 'normal', label: 'ノーマル', Icon: Brush, iconSize: 19 },
+  { id: 'oil', label: '油彩', Icon: Sparkles, iconSize: 19 },
+  { id: 'watercolor', label: '水彩', Icon: Waves, iconSize: 19 },
 ] satisfies readonly ToolOption<BrushType>[]

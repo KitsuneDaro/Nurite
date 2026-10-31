@@ -1,0 +1,58 @@
+.eraser-toggle {
+  min-height: 44px;
+  margin: 0 0 17px;
+  padding: 0 9px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 1px solid #303947;
+  border-radius: 8px;
+  color: #bdc6d2;
+  background: rgba(16, 21, 29, 0.36);
+  cursor: pointer;
+  font-size: 11px;
+  text-align: left;
+}
+
+.eraser-toggle > svg {
+  color: #a5b3c3;
+}
+
+.eraser-toggle.is-on {
+  border-color: #4a93bf;
+  color: #b3def6;
+  background: rgba(50, 93, 120, 0.27);
+}
+
+.toggle-track {
+  width: 27px;
+  height: 15px;
+  margin-left: auto;
+  padding: 2px;
+  border-radius: 20px;
+  background: #384353;
+  transition: background 150ms ease;
+}
+
+.toggle-track > span {
+  width: 11px;
+  height: 11px;
+  display: block;
+  border-radius: 50%;
+  background: #d4dce6;
+  transition: transform 150ms ease;
+}
+
+.toggle-track.checked {
+  background: #388ec1;
+}
+
+.toggle-track.checked > span {
+  transform: translateX(12px);
+}
+
+@media (max-width: 520px) {
+  .eraser-toggle {
+    margin-bottom: 12px;
+  }
+}

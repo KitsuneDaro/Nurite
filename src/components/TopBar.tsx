@@ -4,6 +4,7 @@ import {
   Save,
   Sparkles,
 } from 'lucide-react'
+import './TopBar.css'
 
 export function TopBar() {
   return (

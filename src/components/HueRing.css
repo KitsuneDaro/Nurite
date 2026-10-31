@@ -1,0 +1,37 @@
+.hue-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(#f44242, #f8d33d, #46d64d, #38d2c1, #3979ed, #a243e8, #e842a6, #f44242);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 13px), #000 calc(100% - 12px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 13px), #000 calc(100% - 12px));
+}
+
+.hue-ring-control {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  touch-action: none;
+}
+
+.hue-ring-hit-area {
+  fill: transparent;
+  stroke: transparent;
+  stroke-width: 13px;
+  pointer-events: stroke;
+  cursor: crosshair;
+}
+
+.hue-ring-marker {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border: 2px solid #f5f8fc;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+}

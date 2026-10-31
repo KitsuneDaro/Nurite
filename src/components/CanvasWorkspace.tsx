@@ -1,5 +1,6 @@
 import { ArrowLeft, ArrowRight, Layers } from 'lucide-react'
 import artwork from '../assets/canvas-art.svg'
+import './CanvasWorkspace.css'
 
 export function CanvasWorkspace() {
   return (

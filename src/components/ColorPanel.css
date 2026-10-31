@@ -1,0 +1,27 @@
+.color-panel {
+  display: flex;
+  flex-direction: column;
+  padding: 19px 16px 16px;
+}
+
+.color-heading {
+  margin-bottom: 16px;
+}
+
+@media (max-width: 520px) {
+  .color-panel {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(125px, 0.9fr);
+    align-items: start;
+    column-gap: 14px;
+  }
+
+  .color-panel .color-heading,
+  .color-panel .brush-size-section {
+    grid-column: 1 / -1;
+  }
+
+  .color-panel .color-heading {
+    margin-bottom: 13px;
+  }
+}

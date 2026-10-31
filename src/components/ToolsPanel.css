@@ -1,0 +1,24 @@
+.tools-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 520px) {
+  .tools-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 13px;
+  }
+
+  .tools-panel .panel-heading,
+  .tools-panel .eraser-toggle,
+  .tools-panel .history-buttons,
+  .tools-panel .file-buttons,
+  .tools-panel .panel-footer {
+    grid-column: 1 / -1;
+  }
+
+  .tools-panel .panel-heading {
+    margin-bottom: 13px;
+  }
+}

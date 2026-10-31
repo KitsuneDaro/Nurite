@@ -1,4 +1,5 @@
 import type { KeyboardEvent, PointerEvent } from 'react'
+import './HueRing.css'
 
 type HueRingProps = {
   hue: number
