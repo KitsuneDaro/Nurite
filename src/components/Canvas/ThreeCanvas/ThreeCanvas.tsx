@@ -1,16 +1,12 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
-import type { BrushStrokeStyle, DrawingPoint } from '../../../types'
+import type { BrushStrokeStyle, DrawingSegment } from '../../../types'
 import { CanvasDrawingRenderer } from './CanvasDrawingRenderer'
 import './ThreeCanvas.css'
 
 export type CanvasRenderStatus = 'loading' | 'ready' | 'error'
 
 export type CanvasDrawingHandle = {
-  drawStroke: (
-    points: readonly DrawingPoint[],
-    style: BrushStrokeStyle,
-    previousDirection: DrawingPoint | null,
-  ) => void
+  drawFrame: (segments: readonly DrawingSegment[], style: BrushStrokeStyle) => void
 }
 
 type ThreeCanvasProps = {
@@ -23,8 +19,8 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
     const drawingRendererRef = useRef<CanvasDrawingRenderer | null>(null)
 
     useImperativeHandle(ref, () => ({
-      drawStroke(points, style, previousDirection) {
-        drawingRendererRef.current?.drawStroke(points, style, previousDirection)
+      drawFrame(segments, style) {
+        drawingRendererRef.current?.drawFrame(segments, style)
       },
     }), [])
 

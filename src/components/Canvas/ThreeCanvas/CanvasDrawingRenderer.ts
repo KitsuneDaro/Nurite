@@ -1,5 +1,5 @@
 import * as THREE from 'three'
-import type { BrushStrokeStyle, DrawingPoint } from '../../../types'
+import type { BrushStrokeStyle, DrawingPoint, DrawingSegment } from '../../../types'
 import { brushFragmentShader, brushVertexShader } from './CanvasDrawingShader'
 
 export const CANVAS_SIZE = 1024
@@ -85,12 +85,8 @@ export class CanvasDrawingRenderer {
     this.renderer.render(this.displayScene, this.displayCamera)
   }
 
-  drawStroke(
-    points: readonly DrawingPoint[],
-    style: BrushStrokeStyle,
-    previousDirection: DrawingPoint | null = null,
-  ) {
-    if (this.disposed || points.length === 0) return
+  drawFrame(segments: readonly DrawingSegment[], style: BrushStrokeStyle) {
+    if (this.disposed || segments.length === 0) return
 
     const previousAutoClear = this.renderer.autoClear
     this.renderer.autoClear = false
@@ -103,14 +99,13 @@ export class CanvasDrawingRenderer {
     this.brushMaterial.uniforms.uFollowDirection.value = style.followDirection ? 1 : 0
     this.brushMaterial.uniforms.uColor.value.set(style.eraserEnabled ? '#FFFFFF' : style.color)
 
-    const segmentCount = Math.max(1, points.length - 1)
-    for (let index = 0; index < segmentCount; index += 1) {
-      const start = points[index] ?? points[0]
-      const end = points[index + 1] ?? start
-      const segmentPreviousDirection = index > 0
-        ? this.getSegmentDirection(points[index - 1] ?? start, start)
-        : previousDirection
-      this.renderSegment(start, end, style.size, segmentPreviousDirection)
+    for (const segment of segments) {
+      this.renderSegment(
+        segment.start,
+        segment.end,
+        style.size,
+        segment.previousDirection,
+      )
     }
 
     this.renderer.setScissorTest(false)
@@ -137,13 +132,6 @@ export class CanvasDrawingRenderer {
     this.target.dispose()
     this.renderer.dispose()
     this.renderer.domElement.remove()
-  }
-
-  private getSegmentDirection(start: DrawingPoint, end: DrawingPoint): DrawingPoint {
-    return {
-      x: end.x - start.x,
-      y: end.y - start.y,
-    }
   }
 
   private renderSegment(

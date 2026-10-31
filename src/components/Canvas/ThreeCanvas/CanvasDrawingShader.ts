@@ -64,24 +64,21 @@ export const brushFragmentShader = `
     float brushSize
   ) {
     float segmentLength = length(segment);
-    vec2 tangent = segmentLength > 0.0 ? segment / segmentLength : vec2(1.0, 0.0);
     float halfThickness = max(1.0, brushSize * 0.04);
-    if (abs(segment.x) > halfThickness) {
-      float along = relativePoint.x / segment.x;
-      float across = relativePoint.y - along * segment.y;
-      float alongPadding = halfThickness / abs(segment.x);
-      float acrossPadding = halfThickness * abs(segment.y / segment.x);
-      return along >= -alongPadding
-        && along <= 1.0 + alongPadding
-        && abs(across) <= halfSize + acrossPadding;
+    if (segmentLength == 0.0) {
+      return abs(relativePoint.x) <= halfThickness
+        && abs(relativePoint.y) <= halfSize;
     }
 
-    float along = segmentLength > 0.0
-      ? clamp(dot(relativePoint, tangent), 0.0, segmentLength)
-      : 0.0;
-    vec2 nearestPoint = tangent * along;
-    vec2 distanceFromBrush = abs(relativePoint - nearestPoint);
-    return distanceFromBrush.x <= halfThickness && distanceFromBrush.y <= halfSize;
+    vec2 tangent = segment / segmentLength;
+    vec2 normal = vec2(-tangent.y, tangent.x);
+    vec2 lowerBound = min(vec2(0.0), segment) - vec2(halfThickness, halfSize);
+    vec2 upperBound = max(vec2(0.0), segment) + vec2(halfThickness, halfSize);
+    float normalExtent = halfThickness * abs(normal.x) + halfSize * abs(normal.y);
+
+    return all(greaterThanEqual(relativePoint, lowerBound))
+      && all(lessThanEqual(relativePoint, upperBound))
+      && abs(dot(relativePoint, normal)) <= normalExtent;
   }
 
   bool coversFlatBrush(
@@ -107,14 +104,7 @@ export const brushFragmentShader = `
     bool onCurrentSegment = coversFixedFlatSegment(
       relativePoint, segment, halfSize, brushSize
     );
-    bool onPreviousSegment = length(previousDirection) > 0.0
-      && coversFixedFlatSegment(
-        relativePoint + previousDirection,
-        previousDirection,
-        halfSize,
-        brushSize
-      );
-    return onCurrentSegment || onPreviousSegment;
+    return onCurrentSegment;
   }
 
   bool coversSquareBrush(

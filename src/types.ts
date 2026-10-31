@@ -8,6 +8,12 @@ export type DrawingPoint = {
   y: number
 }
 
+export type DrawingSegment = {
+  start: DrawingPoint
+  end: DrawingPoint
+  previousDirection: DrawingPoint | null
+}
+
 export type BrushStrokeStyle = {
   shape: BrushShape
   size: number

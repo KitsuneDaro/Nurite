@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import type { RefObject } from 'react'
-import type { BrushShape, BrushStrokeStyle, DrawingPoint } from '../../../types'
+import type {
+  BrushShape,
+  BrushStrokeStyle,
+  DrawingPoint,
+  DrawingSegment,
+} from '../../../types'
 import type { CanvasDrawingHandle } from '../ThreeCanvas/ThreeCanvas'
 import { CANVAS_SIZE } from '../ThreeCanvas/CanvasDrawingRenderer'
 
@@ -54,28 +59,36 @@ export function useCanvasStroke({
     if (pendingPointsRef.current.length === 0) return
 
     const pending = pendingPointsRef.current
-    const points = lastDrawnPointRef.current
-      ? [lastDrawnPointRef.current, ...pending]
-      : pending
-    drawingRef.current?.drawStroke(
-      points,
-      drawingStyleRef.current,
-      previousDirectionRef.current,
-    )
-    for (let index = points.length - 1; index > 0; index -= 1) {
-      const current = points[index]
-      const previous = points[index - 1]
-      if (!current || !previous) continue
+    const segments: DrawingSegment[] = []
+    let previousPoint = lastDrawnPointRef.current
+    let previousDirection = previousDirectionRef.current
 
-      const direction = {
-        x: current.x - previous.x,
-        y: current.y - previous.y,
+    for (const point of pending) {
+      if (previousPoint) {
+        segments.push({
+          start: previousPoint,
+          end: point,
+          previousDirection,
+        })
+        const direction = {
+          x: point.x - previousPoint.x,
+          y: point.y - previousPoint.y,
+        }
+        if (direction.x !== 0 || direction.y !== 0) {
+          previousDirection = direction
+        }
+      } else {
+        segments.push({
+          start: point,
+          end: point,
+          previousDirection: null,
+        })
       }
-      if (direction.x !== 0 || direction.y !== 0) {
-        previousDirectionRef.current = direction
-        break
-      }
+      previousPoint = point
     }
+
+    drawingRef.current?.drawFrame(segments, drawingStyleRef.current)
+    previousDirectionRef.current = previousDirection
     lastDrawnPointRef.current = pending[pending.length - 1]
     pendingPointsRef.current = []
   }, [drawingRef])
