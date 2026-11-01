@@ -29,6 +29,8 @@ export const textureDebugFragmentShader = `
       else if (uDebugField == 7) debugValue = endY / 1023.0;
       else if (uDebugField == 8) debugValue = edgeDistance / 63.0;
       else debugValue = brushSize / 63.0;
+    } else if (uDebugField == 14) {
+      debugValue = value.r;
     } else {
       int channel = uDebugField - 10;
       debugValue = channel == 0 ? value.r

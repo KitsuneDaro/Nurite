@@ -138,6 +138,40 @@ const brushEdgeDistanceFunctions = `
       relativePoint, segment, previousDirection, halfSize, followDirection
     ));
   }
+
+  float getBrushEdgeDistance(
+    vec2 relativePoint,
+    vec2 segment,
+    vec2 previousDirection,
+    float brushSize,
+    int shape,
+    float followDirection
+  ) {
+    float segmentLength = length(segment);
+    vec2 tangent = segmentLength > 0.0 ? segment / segmentLength : vec2(1.0, 0.0);
+    vec2 normal = vec2(-tangent.y, tangent.x);
+    float halfSize = brushSize * 0.5;
+
+    if (shape == 0) {
+      return distanceFromRoundBrushEdge(relativePoint, tangent, segmentLength, halfSize);
+    }
+    if (shape == 1) {
+      return distanceFromFlatBrushEdge(
+        relativePoint,
+        segment,
+        tangent,
+        normal,
+        previousDirection,
+        segmentLength,
+        halfSize,
+        brushSize,
+        followDirection
+      );
+    }
+    return distanceFromSquareBrushEdge(
+      relativePoint, segment, previousDirection, halfSize, followDirection
+    );
+  }
 `
 
 export const brushStateAFragmentShader = `
@@ -156,38 +190,15 @@ export const brushStateAFragmentShader = `
 
     vec2 point = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
     vec2 segment = uEnd - uStart;
-    float segmentLength = length(segment);
-    vec2 tangent = segmentLength > 0.0 ? segment / segmentLength : vec2(1.0, 0.0);
-    vec2 normal = vec2(-tangent.y, tangent.x);
     vec2 relativePoint = point - uStart;
-    float halfSize = uBrushSize * 0.5;
-    float edgeDistance = 0.0;
-
-    if (uShape == 0) {
-      edgeDistance = distanceFromRoundBrushEdge(
-        relativePoint, tangent, segmentLength, halfSize
-      );
-    } else if (uShape == 1) {
-      edgeDistance = distanceFromFlatBrushEdge(
-        relativePoint,
-        segment,
-        tangent,
-        normal,
-        uPreviousDirection,
-        segmentLength,
-        halfSize,
-        uBrushSize,
-        uFollowDirection
-      );
-    } else {
-      edgeDistance = distanceFromSquareBrushEdge(
-        relativePoint,
-        segment,
-        uPreviousDirection,
-        halfSize,
-        uFollowDirection
-      );
-    }
+    float edgeDistance = getBrushEdgeDistance(
+      relativePoint,
+      segment,
+      uPreviousDirection,
+      uBrushSize,
+      uShape,
+      uFollowDirection
+    );
 
     float endX = floor(clamp(uEnd.x, 0.0, 1023.0) + 0.5);
     float endY = floor(clamp(uEnd.y, 0.0, 1023.0) + 0.5);
@@ -198,6 +209,34 @@ export const brushStateAFragmentShader = `
     float byte2 = floor(endY / 64.0) + mod(distanceValue, 16.0) * 16.0;
     float byte3 = floor(distanceValue / 16.0) + brushSize * 4.0;
     gl_FragColor = vec4(byte0, byte1, byte2, byte3) / 255.0;
+  }
+`
+
+export const brushStrokeDistanceFragmentShader = `
+  ${segmentMetadataFunctions}
+  uniform vec2 uStart;
+  uniform vec2 uEnd;
+  uniform vec2 uPreviousDirection;
+  uniform float uBrushSize;
+  uniform int uShape;
+  uniform float uFollowDirection;
+
+  ${brushEdgeDistanceFunctions}
+
+  void main() {
+    if (!isCurrentSegmentCovered()) discard;
+
+    vec2 point = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
+    float edgeDistance = getBrushEdgeDistance(
+      point - uStart,
+      uEnd - uStart,
+      uPreviousDirection,
+      uBrushSize,
+      uShape,
+      uFollowDirection
+    );
+    float strokeDistance = clamp(edgeDistance * 2.0, 0.0, 63.0) / 63.0;
+    gl_FragColor = vec4(strokeDistance);
   }
 `
 

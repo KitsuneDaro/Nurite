@@ -1,7 +1,12 @@
 import { CANVAS_SIZE } from '../CanvasConstants'
 
 export type TexturePixels = Uint8Array
-export type TextureName = 'metadata' | 'color' | 'drawing-state-a' | 'drawing-state-b'
+export type TextureName =
+  | 'metadata'
+  | 'color'
+  | 'drawing-state-a'
+  | 'drawing-state-b'
+  | 'stroke-distance'
 
 function clampByte(value: number) {
   return Math.max(0, Math.min(255, Math.round(value)))

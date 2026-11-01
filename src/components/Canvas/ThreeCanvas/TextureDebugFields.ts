@@ -3,6 +3,7 @@ export type TextureDebugSource =
   | 'color'
   | 'drawing-state-a'
   | 'drawing-state-b'
+  | 'stroke-distance'
 
 type TextureDebugFieldDefinition = {
   id: string
@@ -49,6 +50,12 @@ export const TEXTURE_DEBUG_GROUPS = [
       { id: 'velocity-y', label: '速度 Y', mode: 11, source: 'drawing-state-b' },
       { id: 'acceleration-x', label: '加速度 X', mode: 12, source: 'drawing-state-b' },
       { id: 'acceleration-y', label: '加速度 Y', mode: 13, source: 'drawing-state-b' },
+    ],
+  },
+  {
+    label: 'ストローク全体',
+    fields: [
+      { id: 'stroke-edge-distance', label: 'ストローク縁距離', mode: 14, source: 'stroke-distance' },
     ],
   },
 ] as const satisfies readonly TextureDebugGroup[]

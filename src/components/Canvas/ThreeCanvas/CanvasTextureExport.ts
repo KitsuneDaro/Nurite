@@ -8,6 +8,7 @@ const TEXTURE_NAMES = [
   'color',
   'drawing-state-a',
   'drawing-state-b',
+  'stroke-distance',
 ] as const
 
 function getRawBytes(pixels: TexturePixels) {
@@ -19,6 +20,7 @@ function getRawBytes(pixels: TexturePixels) {
 export async function exportTextureTargets(
   renderer: WebGLRenderer,
   targets: readonly [
+    WebGLRenderTarget,
     WebGLRenderTarget,
     WebGLRenderTarget,
     WebGLRenderTarget,
@@ -66,6 +68,10 @@ export async function downloadTextureArchive(
       'drawing-state-b': {
         format: 'RGBA8',
         channels: 'R/G=velocity X/Y and B/A=acceleration X/Y, signed values biased by +128',
+      },
+      'stroke-distance': {
+        format: 'RGBA8',
+        channels: 'RGBA=maximum edge distance encountered in the current stroke, scaled from 0 to 63 (centerline equals brush size).',
       },
     },
     binaryStorage: 'Raw render-target RGBA8 bytes in WebGL bottom-up row order.',
