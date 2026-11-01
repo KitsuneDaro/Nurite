@@ -1,5 +1,5 @@
 import { segmentMetadataFunctions } from './SegmentMetadataShader'
-import { squareBrushDirectionFunction } from './SquareBrushDirectionShader'
+import { squareBrushGeometryFunctions } from './SquareBrushGeometryShader'
 
 export const brushColorFragmentShader = `
   ${segmentMetadataFunctions}
@@ -12,7 +12,7 @@ export const brushColorFragmentShader = `
 `
 
 const brushEdgeDistanceFunctions = `
-  ${squareBrushDirectionFunction}
+  ${squareBrushGeometryFunctions}
 
   float distanceFromRoundBrushEdge(
     vec2 relativePoint,
@@ -130,35 +130,13 @@ const brushEdgeDistanceFunctions = `
   float distanceFromSquareBrushEdge(
     vec2 relativePoint,
     vec2 segment,
-    vec2 tangent,
     vec2 previousDirection,
-    float segmentLength,
     float halfSize,
     float followDirection
   ) {
-    if (followDirection > 0.5 && segmentLength > 0.0) {
-      vec2 brushDirection = getSquareBrushDirection(tangent, previousDirection);
-      vec2 brushNormal = vec2(-brushDirection.y, brushDirection.x);
-      float along = dot(relativePoint, tangent);
-      float across = dot(relativePoint, brushNormal);
-      float alongMargin = min(along + halfSize, segmentLength + halfSize - along);
-      return max(0.0, min(alongMargin, halfSize - abs(across)));
-    }
-
-    vec2 lowerBound = min(vec2(0.0), segment) - vec2(halfSize);
-    vec2 upperBound = max(vec2(0.0), segment) + vec2(halfSize);
-    vec2 normal = vec2(-tangent.y, tangent.x);
-    float horizontalMargin = min(
-      relativePoint.x - lowerBound.x,
-      upperBound.x - relativePoint.x
-    );
-    float verticalMargin = min(
-      relativePoint.y - lowerBound.y,
-      upperBound.y - relativePoint.y
-    );
-    float normalExtent = halfSize * (abs(normal.x) + abs(normal.y));
-    float normalMargin = normalExtent - abs(dot(relativePoint, normal));
-    return max(0.0, min(horizontalMargin, min(verticalMargin, normalMargin)));
+    return max(0.0, getSquareBrushSignedDistance(
+      relativePoint, segment, previousDirection, halfSize, followDirection
+    ));
   }
 `
 
@@ -205,9 +183,7 @@ export const brushStateAFragmentShader = `
       edgeDistance = distanceFromSquareBrushEdge(
         relativePoint,
         segment,
-        tangent,
         uPreviousDirection,
-        segmentLength,
         halfSize,
         uFollowDirection
       );

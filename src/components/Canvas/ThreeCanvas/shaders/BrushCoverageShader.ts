@@ -1,4 +1,4 @@
-import { squareBrushDirectionFunction } from './SquareBrushDirectionShader'
+import { squareBrushGeometryFunctions } from './SquareBrushGeometryShader'
 
 export const brushVertexShader = `
   void main() {
@@ -7,7 +7,7 @@ export const brushVertexShader = `
 `
 
 const brushCoverageFunctions = `
-  ${squareBrushDirectionFunction}
+  ${squareBrushGeometryFunctions}
 
   bool coversRoundBrush(
     vec2 relativePoint,
@@ -102,35 +102,15 @@ const brushCoverageFunctions = `
   }
 
   bool coversSquareBrush(
-    vec2 point,
-    vec2 start,
     vec2 relativePoint,
-    vec2 tangent,
     vec2 previousDirection,
-    float segmentLength,
+    vec2 segment,
     float halfSize,
     float followDirection
   ) {
-    bool covered = false;
-    if (followDirection > 0.5 && segmentLength > 0.0) {
-      vec2 brushDirection = getSquareBrushDirection(tangent, previousDirection);
-      vec2 brushNormal = vec2(-brushDirection.y, brushDirection.x);
-      float along = dot(relativePoint, tangent);
-      float across = dot(relativePoint, brushNormal);
-      bool onSegment = along >= -halfSize && along <= segmentLength + halfSize
-        && abs(across) <= halfSize;
-      covered = onSegment || coversDirectionalJoin(
-        relativePoint, previousDirection, brushNormal, halfSize
-      );
-    } else {
-      float along = segmentLength > 0.0
-        ? clamp(dot(relativePoint, tangent), 0.0, segmentLength)
-        : 0.0;
-      vec2 nearestPoint = start + tangent * along;
-      vec2 distanceFromBrush = abs(point - nearestPoint);
-      covered = distanceFromBrush.x <= halfSize && distanceFromBrush.y <= halfSize;
-    }
-    return covered;
+    return getSquareBrushSignedDistance(
+      relativePoint, segment, previousDirection, halfSize, followDirection
+    ) >= 0.0;
   }
 `
 
@@ -175,12 +155,9 @@ export const brushMetadataFragmentShader = `
       );
     } else {
       covered = coversSquareBrush(
-        point,
-        uStart,
         relativePoint,
-        tangent,
         uPreviousDirection,
-        segmentLength,
+        segment,
         halfSize,
         uFollowDirection
       );
