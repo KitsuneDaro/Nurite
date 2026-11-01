@@ -160,7 +160,7 @@ export const brushStateAFragmentShader = `
 
     float endX = floor(clamp(uEnd.x, 0.0, 1023.0) + 0.5);
     float endY = floor(clamp(uEnd.y, 0.0, 1023.0) + 0.5);
-    float brushShapeId = floor(clamp(float(uShape), 0.0, 63.0) + 0.5);
+    float brushShapeId = floor(clamp(float(uShape + 1), 0.0, 63.0) + 0.5);
     float paintStyleId = floor(clamp(float(uPaintStyleId), 0.0, 63.0) + 0.5);
     float byte0 = mod(endX, 256.0);
     float byte1 = floor(endX / 256.0) + mod(endY, 64.0) * 4.0;

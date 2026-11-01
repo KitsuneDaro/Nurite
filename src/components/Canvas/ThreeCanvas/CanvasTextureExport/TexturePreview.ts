@@ -42,10 +42,10 @@ function createPreviewPixels(name: TextureName, pixels: TexturePixels) {
         const values = pixels as Uint8Array
         const byte2 = values[sourceIndex + 2] ?? 0
         const byte3 = values[sourceIndex + 3] ?? 0
-        const brushShapeId = byte2 % 16 + (byte3 % 4) * 16
+        const brushShapeId = Math.floor(byte2 / 16) + (byte3 % 4) * 16
         const paintStyleId = byte3 >> 2
-        preview[targetIndex] = clampByte(brushShapeId / 63 * 255)
-        preview[targetIndex + 1] = clampByte(paintStyleId / 63 * 255)
+        preview[targetIndex] = clampByte(brushShapeId / 3 * 255)
+        preview[targetIndex + 1] = clampByte(paintStyleId / 3 * 255)
         preview[targetIndex + 2] = 0
         preview[targetIndex + 3] = 255
       } else if (name === 'drawing-state-c') {

@@ -28,9 +28,9 @@ export type { CanvasHistoryState } from './CanvasTextureHistory'
 const MAX_BRUSH_SIZE = 255
 
 const PAINT_STYLE_IDS: Record<BrushStrokeStyle['paintType'], number> = {
-  normal: 0,
-  oil: 1,
-  watercolor: 2,
+  normal: 1,
+  oil: 2,
+  watercolor: 3,
 }
 
 function createMetadataMatchUniforms(metadataTexture: THREE.Texture) {
