@@ -96,4 +96,33 @@ export const squareBrushGeometryFunctions = `
       point, segmentNormal, previousSquareAxis, currentSquareAxis, segment, halfSize
     ));
   }
+
+  float getSquareBrushStrokeEdgeDistance(
+    vec2 point,
+    vec2 segment,
+    vec2 previousDirection,
+    float halfSize,
+    float followDirection
+  ) {
+    vec2 tangent = getSquareTangent(segment, previousDirection);
+    vec2 previousTangent = getSquareTangent(previousDirection, tangent);
+    vec2 normal = vec2(-tangent.y, tangent.x);
+    vec2 previousSquareAxis = followDirection > 0.5
+      ? rotateSquareAxis(previousTangent)
+      : vec2(1.0, 0.0);
+    vec2 currentSquareAxis = followDirection > 0.5
+      ? rotateSquareAxis(tangent)
+      : vec2(1.0, 0.0);
+    float previousExtent = halfSize * (
+      abs(dot(normal, previousSquareAxis))
+      + abs(dot(normal, vec2(-previousSquareAxis.y, previousSquareAxis.x)))
+    );
+    float currentExtent = halfSize * (
+      abs(dot(normal, currentSquareAxis))
+      + abs(dot(normal, vec2(-currentSquareAxis.y, currentSquareAxis.x)))
+    );
+    float sideExtent = max(previousExtent, currentExtent);
+    float sidePosition = abs(dot(point, normal));
+    return max(0.0, halfSize * (1.0 - sidePosition / sideExtent));
+  }
 `

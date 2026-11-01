@@ -37,19 +37,9 @@ const brushEdgeDistanceFunctions = `
       return min(halfThickness - abs(relativePoint.x), halfSize - abs(relativePoint.y));
     }
 
-    vec2 lowerBound = min(vec2(0.0), segment) - vec2(halfThickness, halfSize);
-    vec2 upperBound = max(vec2(0.0), segment) + vec2(halfThickness, halfSize);
     float normalExtent = halfThickness * abs(normal.x) + halfSize * abs(normal.y);
-    float horizontalMargin = min(
-      relativePoint.x - lowerBound.x,
-      upperBound.x - relativePoint.x
-    );
-    float verticalMargin = min(
-      relativePoint.y - lowerBound.y,
-      upperBound.y - relativePoint.y
-    );
     float normalMargin = normalExtent - abs(dot(relativePoint, normal));
-    return max(0.0, min(horizontalMargin, min(verticalMargin, normalMargin)));
+    return max(0.0, normalMargin);
   }
 
   float distanceToSegmentEdge(vec2 point, vec2 start, vec2 end) {
@@ -65,16 +55,11 @@ const brushEdgeDistanceFunctions = `
     vec2 segment,
     vec2 currentNormal,
     vec2 previousDirection,
-    float segmentLength,
     float halfSize
   ) {
     if (length(previousDirection) == 0.0) {
-      float along = dot(relativePoint, vec2(currentNormal.y, -currentNormal.x));
       float across = dot(relativePoint, currentNormal);
-      return max(0.0, min(
-        halfSize - abs(across),
-        min(along, segmentLength - along)
-      ));
+      return max(0.0, halfSize - abs(across));
     }
 
     vec2 previousTangent = normalize(previousDirection);
@@ -92,16 +77,10 @@ const brushEdgeDistanceFunctions = `
       relativePoint, currentPositive, endPositive
     ));
     edgeDistance = min(edgeDistance, distanceToSegmentEdge(
-      relativePoint, endPositive, endNegative
-    ));
-    edgeDistance = min(edgeDistance, distanceToSegmentEdge(
       relativePoint, endNegative, currentNegative
     ));
     edgeDistance = min(edgeDistance, distanceToSegmentEdge(
       relativePoint, currentNegative, previousNegative
-    ));
-    edgeDistance = min(edgeDistance, distanceToSegmentEdge(
-      relativePoint, previousNegative, previousPositive
     ));
     return edgeDistance;
   }
@@ -109,10 +88,8 @@ const brushEdgeDistanceFunctions = `
   float distanceFromFlatBrushEdge(
     vec2 relativePoint,
     vec2 segment,
-    vec2 tangent,
     vec2 normal,
     vec2 previousDirection,
-    float segmentLength,
     float halfSize,
     float brushSize,
     float followDirection
@@ -123,7 +100,7 @@ const brushEdgeDistanceFunctions = `
       );
     }
     return distanceFromDirectionalFlatBrushEdge(
-      relativePoint, segment, normal, previousDirection, segmentLength, halfSize
+      relativePoint, segment, normal, previousDirection, halfSize
     );
   }
 
@@ -134,9 +111,9 @@ const brushEdgeDistanceFunctions = `
     float halfSize,
     float followDirection
   ) {
-    return max(0.0, getSquareBrushSignedDistance(
+    return getSquareBrushStrokeEdgeDistance(
       relativePoint, segment, previousDirection, halfSize, followDirection
-    ));
+    );
   }
 
   float getBrushEdgeDistance(
@@ -159,10 +136,8 @@ const brushEdgeDistanceFunctions = `
       return distanceFromFlatBrushEdge(
         relativePoint,
         segment,
-        tangent,
         normal,
         previousDirection,
-        segmentLength,
         halfSize,
         brushSize,
         followDirection

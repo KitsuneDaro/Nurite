@@ -58,7 +58,6 @@ export class CanvasTextureHistory {
     source: THREE.WebGLRenderTarget,
     destination: THREE.WebGLRenderTarget,
   ) => void
-  private readonly clearStrokeDistance: (target: THREE.WebGLRenderTarget) => void
   private currentStrokeId = 0
   private maxStrokeId = 0
   private activeStrokeId: number | null = null
@@ -69,10 +68,8 @@ export class CanvasTextureHistory {
       source: THREE.WebGLRenderTarget,
       destination: THREE.WebGLRenderTarget,
     ) => void,
-    clearStrokeDistance: (target: THREE.WebGLRenderTarget) => void,
   ) {
     this.copyTarget = copyTarget
-    this.clearStrokeDistance = clearStrokeDistance
     this.snapshots[0] = { strokeId: 0, targets: createRenderTargetSet() }
   }
 
@@ -98,7 +95,6 @@ export class CanvasTextureHistory {
     this.discardRedoHistory()
     this.saveSnapshot(strokeId)
     this.activeStrokeId = strokeId
-    this.clearStrokeDistance(this.currentTargets[4])
     this.activeStrokeHasDrawing = false
     return strokeId
   }

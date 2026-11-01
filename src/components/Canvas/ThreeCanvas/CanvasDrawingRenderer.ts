@@ -75,8 +75,6 @@ export class CanvasDrawingRenderer {
 
     this.history = new CanvasTextureHistory((source, destination) => {
       this.copyTarget(source, destination)
-    }, (target) => {
-      this.clearTarget(target, '#000000', 0)
     })
     this.canvasExportTarget = createRenderTarget()
     this.canvasExportTarget.texture.colorSpace = THREE.SRGBColorSpace
