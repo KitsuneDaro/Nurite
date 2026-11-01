@@ -1,3 +1,5 @@
+import { squareBrushDirectionFunction } from './SquareBrushDirectionShader'
+
 export const brushVertexShader = `
   void main() {
     gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
@@ -5,6 +7,8 @@ export const brushVertexShader = `
 `
 
 const brushCoverageFunctions = `
+  ${squareBrushDirectionFunction}
+
   bool coversRoundBrush(
     vec2 relativePoint,
     vec2 tangent,
@@ -102,7 +106,6 @@ const brushCoverageFunctions = `
     vec2 start,
     vec2 relativePoint,
     vec2 tangent,
-    vec2 normal,
     vec2 previousDirection,
     float segmentLength,
     float halfSize,
@@ -110,12 +113,14 @@ const brushCoverageFunctions = `
   ) {
     bool covered = false;
     if (followDirection > 0.5 && segmentLength > 0.0) {
+      vec2 brushDirection = getSquareBrushDirection(tangent, previousDirection);
+      vec2 brushNormal = vec2(-brushDirection.y, brushDirection.x);
       float along = dot(relativePoint, tangent);
-      float across = dot(relativePoint, normal);
+      float across = dot(relativePoint, brushNormal);
       bool onSegment = along >= -halfSize && along <= segmentLength + halfSize
         && abs(across) <= halfSize;
       covered = onSegment || coversDirectionalJoin(
-        relativePoint, previousDirection, normal, halfSize
+        relativePoint, previousDirection, brushNormal, halfSize
       );
     } else {
       float along = segmentLength > 0.0
@@ -174,7 +179,6 @@ export const brushMetadataFragmentShader = `
         uStart,
         relativePoint,
         tangent,
-        normal,
         uPreviousDirection,
         segmentLength,
         halfSize,
@@ -197,4 +201,3 @@ export const brushMetadataFragmentShader = `
     ) / 255.0;
   }
 `
-

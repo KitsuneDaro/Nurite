@@ -166,7 +166,17 @@ export function CanvasWorkspace({
       }
     }
 
-    stroke.addStrokePoint(event.pointerId, event.clientX, event.clientY)
+    const coalescedEvents = event.nativeEvent.getCoalescedEvents?.() ?? []
+    let lastX: number | undefined
+    let lastY: number | undefined
+    for (const coalescedEvent of coalescedEvents) {
+      stroke.addStrokePoint(event.pointerId, coalescedEvent.clientX, coalescedEvent.clientY)
+      lastX = coalescedEvent.clientX
+      lastY = coalescedEvent.clientY
+    }
+    if (lastX !== event.clientX || lastY !== event.clientY) {
+      stroke.addStrokePoint(event.pointerId, event.clientX, event.clientY)
+    }
   }
 
   function handlePointerEnd(event: ReactPointerEvent<HTMLDivElement>) {

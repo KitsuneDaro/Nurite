@@ -1,4 +1,5 @@
 import { segmentMetadataFunctions } from './SegmentMetadataShader'
+import { squareBrushDirectionFunction } from './SquareBrushDirectionShader'
 
 export const brushColorFragmentShader = `
   ${segmentMetadataFunctions}
@@ -11,6 +12,8 @@ export const brushColorFragmentShader = `
 `
 
 const brushEdgeDistanceFunctions = `
+  ${squareBrushDirectionFunction}
+
   float distanceFromRoundBrushEdge(
     vec2 relativePoint,
     vec2 tangent,
@@ -128,20 +131,23 @@ const brushEdgeDistanceFunctions = `
     vec2 relativePoint,
     vec2 segment,
     vec2 tangent,
-    vec2 normal,
+    vec2 previousDirection,
     float segmentLength,
     float halfSize,
     float followDirection
   ) {
     if (followDirection > 0.5 && segmentLength > 0.0) {
+      vec2 brushDirection = getSquareBrushDirection(tangent, previousDirection);
+      vec2 brushNormal = vec2(-brushDirection.y, brushDirection.x);
       float along = dot(relativePoint, tangent);
-      float across = dot(relativePoint, normal);
+      float across = dot(relativePoint, brushNormal);
       float alongMargin = min(along + halfSize, segmentLength + halfSize - along);
       return max(0.0, min(alongMargin, halfSize - abs(across)));
     }
 
     vec2 lowerBound = min(vec2(0.0), segment) - vec2(halfSize);
     vec2 upperBound = max(vec2(0.0), segment) + vec2(halfSize);
+    vec2 normal = vec2(-tangent.y, tangent.x);
     float horizontalMargin = min(
       relativePoint.x - lowerBound.x,
       upperBound.x - relativePoint.x
@@ -200,7 +206,7 @@ export const brushStateAFragmentShader = `
         relativePoint,
         segment,
         tangent,
-        normal,
+        uPreviousDirection,
         segmentLength,
         halfSize,
         uFollowDirection
@@ -234,4 +240,3 @@ export const brushStateBFragmentShader = `
     );
   }
 `
-
