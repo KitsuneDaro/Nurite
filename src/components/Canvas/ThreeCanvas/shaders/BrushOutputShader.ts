@@ -216,7 +216,7 @@ export const squareBrushStrokeCapFragmentShader = `
 
   void main() {
     float directionLength = length(uDirection);
-    vec2 tangent = directionLength > 0.5
+    vec2 tangent = directionLength > 0.0001
       ? uDirection / directionLength
       : vec2(1.0, 0.0);
     vec2 point = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
