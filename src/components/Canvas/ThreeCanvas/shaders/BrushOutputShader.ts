@@ -151,38 +151,21 @@ const brushEdgeDistanceFunctions = `
 
 export const brushStateAFragmentShader = `
   ${segmentMetadataFunctions}
-  uniform vec2 uStart;
   uniform vec2 uEnd;
-  uniform vec2 uPreviousDirection;
-  uniform float uBrushSize;
   uniform int uShape;
-  uniform float uFollowDirection;
-
-  ${brushEdgeDistanceFunctions}
+  uniform int uPaintStyleId;
 
   void main() {
     if (!isCurrentSegmentCovered()) discard;
 
-    vec2 point = vec2(gl_FragCoord.x, uResolution.y - gl_FragCoord.y);
-    vec2 segment = uEnd - uStart;
-    vec2 relativePoint = point - uStart;
-    float edgeDistance = getBrushEdgeDistance(
-      relativePoint,
-      segment,
-      uPreviousDirection,
-      uBrushSize,
-      uShape,
-      uFollowDirection
-    );
-
     float endX = floor(clamp(uEnd.x, 0.0, 1023.0) + 0.5);
     float endY = floor(clamp(uEnd.y, 0.0, 1023.0) + 0.5);
-    float distanceValue = floor(clamp(edgeDistance, 0.0, 63.0) + 0.5);
-    float brushSize = floor(clamp(uBrushSize, 0.0, 63.0) + 0.5);
+    float brushShapeId = floor(clamp(float(uShape), 0.0, 63.0) + 0.5);
+    float paintStyleId = floor(clamp(float(uPaintStyleId), 0.0, 63.0) + 0.5);
     float byte0 = mod(endX, 256.0);
     float byte1 = floor(endX / 256.0) + mod(endY, 64.0) * 4.0;
-    float byte2 = floor(endY / 64.0) + mod(distanceValue, 16.0) * 16.0;
-    float byte3 = floor(distanceValue / 16.0) + brushSize * 4.0;
+    float byte2 = floor(endY / 64.0) + mod(brushShapeId, 16.0) * 16.0;
+    float byte3 = floor(brushShapeId / 16.0) + paintStyleId * 4.0;
     gl_FragColor = vec4(byte0, byte1, byte2, byte3) / 255.0;
   }
 `
@@ -210,8 +193,9 @@ export const brushStrokeDistanceFragmentShader = `
       uShape,
       uFollowDirection
     );
-    float strokeDistance = clamp(edgeDistance * 2.0, 0.0, 63.0) / 63.0;
-    gl_FragColor = vec4(strokeDistance);
+    float strokeDistance = clamp(edgeDistance * 2.0, 0.0, 255.0);
+    float brushSize = floor(clamp(uBrushSize, 0.0, 255.0) + 0.5);
+    gl_FragColor = vec4(strokeDistance, brushSize, 0.0, 1.0);
   }
 `
 

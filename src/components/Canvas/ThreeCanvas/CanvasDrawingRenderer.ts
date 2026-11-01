@@ -25,7 +25,13 @@ import type { CanvasHistoryState } from './CanvasTextureHistory'
 export { CANVAS_SIZE } from './CanvasConstants'
 export type { CanvasHistoryState } from './CanvasTextureHistory'
 
-const MAX_BRUSH_SIZE = 63
+const MAX_BRUSH_SIZE = 255
+
+const PAINT_STYLE_IDS: Record<BrushStrokeStyle['paintType'], number> = {
+  normal: 0,
+  oil: 1,
+  watercolor: 2,
+}
 
 function createMetadataMatchUniforms(metadataTexture: THREE.Texture) {
   return {
@@ -47,7 +53,7 @@ export class CanvasDrawingRenderer {
   private readonly colorMaterial: THREE.ShaderMaterial
   private readonly drawingStateMaterialA: THREE.ShaderMaterial
   private readonly drawingStateMaterialB: THREE.ShaderMaterial
-  private readonly strokeDistanceMaterial: THREE.ShaderMaterial
+  private readonly drawingStateMaterialC: THREE.ShaderMaterial
   private readonly brushMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
   private readonly brushScene: THREE.Scene
   private readonly brushCamera: THREE.OrthographicCamera
@@ -67,6 +73,14 @@ export class CanvasDrawingRenderer {
       alpha: false,
       powerPreference: 'high-performance',
     })
+    const context = this.renderer.getContext()
+    if (
+      !context.getExtension('EXT_color_buffer_float')
+      || !context.getExtension('EXT_float_blend')
+    ) {
+      this.renderer.dispose()
+      throw new Error('This WebGL device does not support 16-bit floating-point texture blending.')
+    }
     this.renderer.setPixelRatio(1)
     this.renderer.setSize(CANVAS_SIZE, CANVAS_SIZE, false)
     this.renderer.outputColorSpace = THREE.SRGBColorSpace
@@ -140,12 +154,9 @@ export class CanvasDrawingRenderer {
     this.drawingStateMaterialA = new THREE.ShaderMaterial({
       uniforms: {
         ...createMetadataMatchUniforms(this.metadataTarget.texture),
-        uStart: { value: new THREE.Vector2() },
         uEnd: { value: new THREE.Vector2() },
-        uPreviousDirection: { value: new THREE.Vector2() },
-        uBrushSize: { value: 1 },
         uShape: { value: 0 },
-        uFollowDirection: { value: 0 },
+        uPaintStyleId: { value: 0 },
       },
       vertexShader: brushVertexShader,
       fragmentShader: brushStateAFragmentShader,
@@ -169,7 +180,7 @@ export class CanvasDrawingRenderer {
       side: THREE.DoubleSide,
       toneMapped: false,
     })
-    this.strokeDistanceMaterial = new THREE.ShaderMaterial({
+    this.drawingStateMaterialC = new THREE.ShaderMaterial({
       uniforms: {
         ...createMetadataMatchUniforms(this.metadataTarget.texture),
         uStart: { value: new THREE.Vector2() },
@@ -251,7 +262,7 @@ export class CanvasDrawingRenderer {
       new THREE.Color().setRGB(128 / 255, 128 / 255, 128 / 255),
       1,
     )
-    this.clearTarget(this.strokeDistanceTarget, '#000000', 0)
+    this.clearTarget(this.drawingStateTargetC, '#000000', 0)
     this.renderOutput()
   }
 
@@ -271,7 +282,7 @@ export class CanvasDrawingRenderer {
     return this.history.currentTargets[3]
   }
 
-  private get strokeDistanceTarget() {
+  private get drawingStateTargetC() {
     return this.history.currentTargets[4]
   }
 
@@ -283,7 +294,7 @@ export class CanvasDrawingRenderer {
       color: this.colorTarget,
       'drawing-state-a': this.drawingStateTargetA,
       'drawing-state-b': this.drawingStateTargetB,
-      'stroke-distance': this.strokeDistanceTarget,
+      'drawing-state-c': this.drawingStateTargetC,
     }
     this.debugField = field
     this.debugMaterial.uniforms.uTexture.value = targets[definition.source]!.texture
@@ -305,7 +316,7 @@ export class CanvasDrawingRenderer {
       this.colorTarget,
       this.drawingStateTargetA,
       this.drawingStateTargetB,
-      this.strokeDistanceTarget,
+      this.drawingStateTargetC,
     ])
   }
 
@@ -381,17 +392,17 @@ export class CanvasDrawingRenderer {
       Math.max(1, style.size),
     )
     const shape = style.shape === 'round' ? 0 : style.shape === 'flat' ? 1 : 2
+    const paintStyleId = PAINT_STYLE_IDS[style.paintType]
     const followDirection = style.followDirection ? 1 : 0
     this.metadataMaterial.uniforms.uBrushSize.value = brushSize
     this.metadataMaterial.uniforms.uShape.value = shape
     this.metadataMaterial.uniforms.uStrokeId.value = strokeId
     this.metadataMaterial.uniforms.uFollowDirection.value = followDirection
-    this.drawingStateMaterialA.uniforms.uBrushSize.value = brushSize
     this.drawingStateMaterialA.uniforms.uShape.value = shape
-    this.drawingStateMaterialA.uniforms.uFollowDirection.value = followDirection
-    this.strokeDistanceMaterial.uniforms.uBrushSize.value = brushSize
-    this.strokeDistanceMaterial.uniforms.uShape.value = shape
-    this.strokeDistanceMaterial.uniforms.uFollowDirection.value = followDirection
+    this.drawingStateMaterialA.uniforms.uPaintStyleId.value = paintStyleId
+    this.drawingStateMaterialC.uniforms.uBrushSize.value = brushSize
+    this.drawingStateMaterialC.uniforms.uShape.value = shape
+    this.drawingStateMaterialC.uniforms.uFollowDirection.value = followDirection
     this.colorMaterial.uniforms.uColor.value.set(
       style.eraserEnabled ? '#FFFFFF' : style.color,
     )
@@ -413,19 +424,13 @@ export class CanvasDrawingRenderer {
         this.colorMaterial,
         this.drawingStateMaterialA,
         this.drawingStateMaterialB,
-        this.strokeDistanceMaterial,
+        this.drawingStateMaterialC,
       ]) {
         material.uniforms.uStrokeId.value = strokeId
         material.uniforms.uSegmentId.value = segmentId
       }
-      this.drawingStateMaterialA.uniforms.uStart.value.copy(
-        this.metadataMaterial.uniforms.uStart.value,
-      )
       this.drawingStateMaterialA.uniforms.uEnd.value.copy(
         this.metadataMaterial.uniforms.uEnd.value,
-      )
-      this.drawingStateMaterialA.uniforms.uPreviousDirection.value.copy(
-        this.metadataMaterial.uniforms.uPreviousDirection.value,
       )
       this.drawingStateMaterialB.uniforms.uVelocity.value.set(
         segment.end.x - segment.start.x,
@@ -435,19 +440,19 @@ export class CanvasDrawingRenderer {
         segment.end.x - segment.start.x - (segment.previousDirection?.x ?? 0),
         segment.end.y - segment.start.y - (segment.previousDirection?.y ?? 0),
       )
-      this.strokeDistanceMaterial.uniforms.uStart.value.copy(
+      this.drawingStateMaterialC.uniforms.uStart.value.copy(
         this.metadataMaterial.uniforms.uStart.value,
       )
-      this.strokeDistanceMaterial.uniforms.uEnd.value.copy(
+      this.drawingStateMaterialC.uniforms.uEnd.value.copy(
         this.metadataMaterial.uniforms.uEnd.value,
       )
-      this.strokeDistanceMaterial.uniforms.uPreviousDirection.value.copy(
+      this.drawingStateMaterialC.uniforms.uPreviousDirection.value.copy(
         this.metadataMaterial.uniforms.uPreviousDirection.value,
       )
       this.renderSegmentPass(this.metadataTarget, this.metadataMaterial)
       this.renderSegmentPass(this.drawingStateTargetA, this.drawingStateMaterialA)
       this.renderSegmentPass(this.drawingStateTargetB, this.drawingStateMaterialB)
-      this.renderSegmentPass(this.strokeDistanceTarget, this.strokeDistanceMaterial)
+      this.renderSegmentPass(this.drawingStateTargetC, this.drawingStateMaterialC)
       this.renderSegmentPass(this.colorTarget, this.colorMaterial)
       processedSegmentCount += 1
     }
@@ -473,7 +478,7 @@ export class CanvasDrawingRenderer {
     this.colorMaterial.dispose()
     this.drawingStateMaterialA.dispose()
     this.drawingStateMaterialB.dispose()
-    this.strokeDistanceMaterial.dispose()
+    this.drawingStateMaterialC.dispose()
     this.displayScene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
       object.geometry.dispose()
@@ -529,7 +534,7 @@ export class CanvasDrawingRenderer {
       this.colorMaterial,
       this.drawingStateMaterialA,
       this.drawingStateMaterialB,
-      this.strokeDistanceMaterial,
+      this.drawingStateMaterialC,
     ]) {
       material.uniforms.uMetadataTexture.value = this.metadataTarget.texture
     }
@@ -538,7 +543,7 @@ export class CanvasDrawingRenderer {
       color: this.colorTarget,
       'drawing-state-a': this.drawingStateTargetA,
       'drawing-state-b': this.drawingStateTargetB,
-      'stroke-distance': this.strokeDistanceTarget,
+      'drawing-state-c': this.drawingStateTargetC,
     }
     this.debugMaterial.uniforms.uTexture.value =
       targets[getTextureDebugField(this.debugField).source].texture

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import { CANVAS_SIZE } from './CanvasConstants'
-import type { TextureDataType } from 'three'
+import type { PixelFormat, TextureDataType } from 'three'
 
 const UNDO_LIMIT = 5
 const HISTORY_SLOT_COUNT = UNDO_LIMIT + 1
@@ -23,11 +23,14 @@ export type CanvasHistoryState = {
   canRedo: boolean
 }
 
-export function createRenderTarget(type: TextureDataType = THREE.UnsignedByteType) {
+export function createRenderTarget(
+  type: TextureDataType = THREE.UnsignedByteType,
+  format: PixelFormat = THREE.RGBAFormat,
+) {
   const target = new THREE.WebGLRenderTarget(CANVAS_SIZE, CANVAS_SIZE, {
     minFilter: THREE.NearestFilter,
     magFilter: THREE.NearestFilter,
-    format: THREE.RGBAFormat,
+    format,
     type,
     depthBuffer: false,
     stencilBuffer: false,
@@ -43,7 +46,7 @@ function createRenderTargetSet(): RenderTargetSet {
     createRenderTarget(),
     createRenderTarget(),
     createRenderTarget(),
-    createRenderTarget(),
+    createRenderTarget(THREE.HalfFloatType, THREE.RGFormat),
   ]
 }
 

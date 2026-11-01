@@ -23,14 +23,16 @@ export const textureDebugFragmentShader = `
     } else if (uDebugField >= 6 && uDebugField <= 9) {
       float endX = bytes.r + mod(bytes.g, 4.0) * 256.0;
       float endY = floor(bytes.g / 4.0) + mod(bytes.b, 16.0) * 64.0;
-      float edgeDistance = floor(bytes.b / 16.0) + mod(bytes.a, 4.0) * 16.0;
-      float brushSize = floor(bytes.a / 4.0);
+      float brushShapeId = mod(bytes.b, 16.0) + mod(bytes.a, 4.0) * 16.0;
+      float paintStyleId = floor(bytes.a / 4.0);
       if (uDebugField == 6) debugValue = endX / 1023.0;
       else if (uDebugField == 7) debugValue = endY / 1023.0;
-      else if (uDebugField == 8) debugValue = edgeDistance / 63.0;
-      else debugValue = brushSize / 63.0;
+      else if (uDebugField == 8) debugValue = brushShapeId / 63.0;
+      else debugValue = paintStyleId / 63.0;
     } else if (uDebugField == 14) {
-      debugValue = value.r;
+      debugValue = value.r / 255.0;
+    } else if (uDebugField == 15) {
+      debugValue = value.g / 255.0;
     } else {
       int channel = uDebugField - 10;
       debugValue = channel == 0 ? value.r

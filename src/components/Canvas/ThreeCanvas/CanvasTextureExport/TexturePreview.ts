@@ -1,12 +1,13 @@
 import { CANVAS_SIZE } from '../CanvasConstants'
 
 export type TexturePixels = Uint8Array
+  | Uint16Array
 export type TextureName =
   | 'metadata'
   | 'color'
   | 'drawing-state-a'
   | 'drawing-state-b'
-  | 'stroke-distance'
+  | 'drawing-state-c'
 
 function clampByte(value: number) {
   return Math.max(0, Math.min(255, Math.round(value)))
@@ -20,6 +21,15 @@ function linearToSrgb(value: number) {
   return clampByte(srgb * 255)
 }
 
+function halfFloatToNumber(value: number) {
+  const sign = (value & 0x8000) === 0 ? 1 : -1
+  const exponent = (value >> 10) & 0x1F
+  const fraction = value & 0x03FF
+  if (exponent === 0) return sign * 2 ** -14 * (fraction / 1024)
+  if (exponent === 0x1F) return fraction === 0 ? sign * Infinity : NaN
+  return sign * 2 ** (exponent - 15) * (1 + fraction / 1024)
+}
+
 function createPreviewPixels(name: TextureName, pixels: TexturePixels) {
   const preview = new Uint8ClampedArray(CANVAS_SIZE * CANVAS_SIZE * 4)
 
@@ -30,16 +40,21 @@ function createPreviewPixels(name: TextureName, pixels: TexturePixels) {
       const targetIndex = (y * CANVAS_SIZE + x) * 4
       if (name === 'drawing-state-a') {
         const values = pixels as Uint8Array
-        const byte0 = values[sourceIndex] ?? 0
-        const byte1 = values[sourceIndex + 1] ?? 0
         const byte2 = values[sourceIndex + 2] ?? 0
         const byte3 = values[sourceIndex + 3] ?? 0
-        const endX = byte0 + (byte1 % 4) * 256
-        const endY = Math.floor(byte1 / 4) + (byte2 % 16) * 64
-        const edgeDistance = Math.floor(byte2 / 16) + (byte3 % 4) * 16
-        preview[targetIndex] = clampByte(endX / 1023 * 255)
-        preview[targetIndex + 1] = clampByte(endY / 1023 * 255)
-        preview[targetIndex + 2] = clampByte(edgeDistance / 63 * 255)
+        const brushShapeId = byte2 % 16 + (byte3 % 4) * 16
+        const paintStyleId = byte3 >> 2
+        preview[targetIndex] = clampByte(brushShapeId / 63 * 255)
+        preview[targetIndex + 1] = clampByte(paintStyleId / 63 * 255)
+        preview[targetIndex + 2] = 0
+        preview[targetIndex + 3] = 255
+      } else if (name === 'drawing-state-c') {
+        const values = pixels as Uint16Array
+        const distance = halfFloatToNumber(values[sourceRow * CANVAS_SIZE * 2 + x * 2] ?? 0)
+        const brushSize = halfFloatToNumber(values[sourceRow * CANVAS_SIZE * 2 + x * 2 + 1] ?? 0)
+        preview[targetIndex] = clampByte(distance)
+        preview[targetIndex + 1] = clampByte(brushSize)
+        preview[targetIndex + 2] = 0
         preview[targetIndex + 3] = 255
       } else {
         const values = pixels

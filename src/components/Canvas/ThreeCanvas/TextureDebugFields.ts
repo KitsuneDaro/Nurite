@@ -3,7 +3,7 @@ export type TextureDebugSource =
   | 'color'
   | 'drawing-state-a'
   | 'drawing-state-b'
-  | 'stroke-distance'
+  | 'drawing-state-c'
 
 type TextureDebugFieldDefinition = {
   id: string
@@ -39,8 +39,8 @@ export const TEXTURE_DEBUG_GROUPS = [
     fields: [
       { id: 'position-x', label: '位置 X', mode: 6, source: 'drawing-state-a' },
       { id: 'position-y', label: '位置 Y', mode: 7, source: 'drawing-state-a' },
-      { id: 'edge-distance', label: '縁距離', mode: 8, source: 'drawing-state-a' },
-      { id: 'brush-size', label: '筆サイズ', mode: 9, source: 'drawing-state-a' },
+      { id: 'brush-shape-id', label: 'ブラシ形状ID', mode: 8, source: 'drawing-state-a' },
+      { id: 'paint-style-id', label: 'ペイントスタイルID', mode: 9, source: 'drawing-state-a' },
     ],
   },
   {
@@ -53,9 +53,10 @@ export const TEXTURE_DEBUG_GROUPS = [
     ],
   },
   {
-    label: 'ストローク全体',
+    label: '描画状況 C',
     fields: [
-      { id: 'stroke-edge-distance', label: 'ストローク縁距離', mode: 14, source: 'stroke-distance' },
+      { id: 'stroke-edge-distance', label: 'ストローク縁距離', mode: 14, source: 'drawing-state-c' },
+      { id: 'brush-size', label: 'ブラシサイズ', mode: 15, source: 'drawing-state-c' },
     ],
   },
 ] as const satisfies readonly TextureDebugGroup[]
