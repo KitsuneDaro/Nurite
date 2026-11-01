@@ -7,6 +7,7 @@ import {
   brushStateBFragmentShader,
   brushStrokeDistanceFragmentShader,
   brushVertexShader,
+  squareBrushStrokeCapFragmentShader,
   textureDebugFragmentShader,
   textureDebugVertexShader,
 } from './CanvasDrawingShader'
@@ -33,6 +34,17 @@ const PAINT_STYLE_IDS: Record<BrushStrokeStyle['paintType'], number> = {
   watercolor: 3,
 }
 
+type SquareStrokeDistanceCaps = {
+  start: DrawingPoint
+  startDirection: DrawingPoint | null
+  startBrushSize: number
+  startFollowDirection: number
+  end: DrawingPoint
+  endDirection: DrawingPoint | null
+  endBrushSize: number
+  endFollowDirection: number
+}
+
 function createMetadataMatchUniforms(metadataTexture: THREE.Texture) {
   return {
     uStrokeId: { value: 0 },
@@ -54,6 +66,7 @@ export class CanvasDrawingRenderer {
   private readonly drawingStateMaterialA: THREE.ShaderMaterial
   private readonly drawingStateMaterialB: THREE.ShaderMaterial
   private readonly drawingStateMaterialC: THREE.ShaderMaterial
+  private readonly squareStrokeCapMaterial: THREE.ShaderMaterial
   private readonly brushMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
   private readonly brushScene: THREE.Scene
   private readonly brushCamera: THREE.OrthographicCamera
@@ -65,6 +78,7 @@ export class CanvasDrawingRenderer {
   private readonly debugMaterial: THREE.ShaderMaterial
   private debugMode = false
   private debugField = DEFAULT_TEXTURE_DEBUG_FIELD
+  private squareStrokeDistanceCaps: SquareStrokeDistanceCaps | null = null
   private disposed = false
 
   constructor(container: HTMLElement) {
@@ -192,6 +206,30 @@ export class CanvasDrawingRenderer {
       },
       vertexShader: brushVertexShader,
       fragmentShader: brushStrokeDistanceFragmentShader,
+      transparent: true,
+      blending: THREE.CustomBlending,
+      blendEquation: THREE.MaxEquation,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.OneFactor,
+      blendEquationAlpha: THREE.MaxEquation,
+      blendSrcAlpha: THREE.OneFactor,
+      blendDstAlpha: THREE.OneFactor,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    })
+    this.squareStrokeCapMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uEndpoint: { value: new THREE.Vector2() },
+        uDirection: { value: new THREE.Vector2() },
+        uBrushSize: { value: 1 },
+        uFollowDirection: { value: 0 },
+        uStartCap: { value: 0 },
+        uResolution: { value: new THREE.Vector2(CANVAS_SIZE, CANVAS_SIZE) },
+      },
+      vertexShader: brushVertexShader,
+      fragmentShader: squareBrushStrokeCapFragmentShader,
       transparent: true,
       blending: THREE.CustomBlending,
       blendEquation: THREE.MaxEquation,
@@ -335,10 +373,13 @@ export class CanvasDrawingRenderer {
 
   beginStroke(): number | null {
     if (this.disposed) return null
+    this.squareStrokeDistanceCaps = null
     return this.history.beginStroke()
   }
 
   endStroke(): CanvasHistoryState {
+    this.renderSquareStrokeDistanceCaps()
+    this.squareStrokeDistanceCaps = null
     return this.history.endStroke()
   }
 
@@ -419,6 +460,7 @@ export class CanvasDrawingRenderer {
         segment.previousDirection,
       )) continue
 
+      this.updateSquareStrokeDistanceCaps(segment, brushSize, followDirection)
       this.metadataMaterial.uniforms.uSegmentId.value = segmentId
       for (const material of [
         this.colorMaterial,
@@ -463,6 +505,87 @@ export class CanvasDrawingRenderer {
     return processedSegmentCount
   }
 
+  private updateSquareStrokeDistanceCaps(
+    segment: DrawingSegment,
+    brushSize: number,
+    followDirection: number,
+  ) {
+    if (this.drawingStateMaterialC.uniforms.uShape.value !== 2) return
+
+    const direction = {
+      x: segment.end.x - segment.start.x,
+      y: segment.end.y - segment.start.y,
+    }
+    const hasDirection = direction.x !== 0 || direction.y !== 0
+    const existing = this.squareStrokeDistanceCaps
+    if (!existing) {
+      this.squareStrokeDistanceCaps = {
+        start: { ...segment.start },
+        startDirection: hasDirection ? direction : null,
+        startBrushSize: brushSize,
+        startFollowDirection: followDirection,
+        end: { ...segment.end },
+        endDirection: hasDirection ? direction : null,
+        endBrushSize: brushSize,
+        endFollowDirection: followDirection,
+      }
+      return
+    }
+
+    if (!existing.startDirection && hasDirection) {
+      existing.startDirection = direction
+    }
+    existing.end = { ...segment.end }
+    if (hasDirection) existing.endDirection = direction
+    existing.endBrushSize = brushSize
+    existing.endFollowDirection = followDirection
+  }
+
+  private renderSquareStrokeDistanceCaps() {
+    const caps = this.squareStrokeDistanceCaps
+    if (!caps) return
+
+    const previousAutoClear = this.renderer.autoClear
+    this.renderer.autoClear = false
+    this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    this.renderer.setScissorTest(true)
+    const renderCap = (
+      endpoint: DrawingPoint,
+      direction: DrawingPoint | null,
+      brushSize: number,
+      followDirection: number,
+      isStart: boolean,
+    ) => {
+      const uniforms = this.squareStrokeCapMaterial.uniforms
+      uniforms.uEndpoint.value.set(endpoint.x, endpoint.y)
+      uniforms.uDirection.value.set(direction?.x ?? 0, direction?.y ?? 0)
+      uniforms.uBrushSize.value = brushSize
+      uniforms.uFollowDirection.value = followDirection
+      uniforms.uStartCap.value = isStart ? 1 : 0
+      if (this.setSegmentUniforms(endpoint, endpoint, brushSize, direction)) {
+        this.renderSegmentPass(this.drawingStateTargetC, this.squareStrokeCapMaterial)
+      }
+    }
+
+    renderCap(
+      caps.start,
+      caps.startDirection,
+      caps.startBrushSize,
+      caps.startFollowDirection,
+      true,
+    )
+    renderCap(
+      caps.end,
+      caps.endDirection,
+      caps.endBrushSize,
+      caps.endFollowDirection,
+      false,
+    )
+    this.renderer.setScissorTest(false)
+    this.renderer.autoClear = previousAutoClear
+    this.renderOutput()
+  }
+
   dispose() {
     if (this.disposed) return
     this.disposed = true
@@ -479,6 +602,7 @@ export class CanvasDrawingRenderer {
     this.drawingStateMaterialA.dispose()
     this.drawingStateMaterialB.dispose()
     this.drawingStateMaterialC.dispose()
+    this.squareStrokeCapMaterial.dispose()
     this.displayScene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
       object.geometry.dispose()

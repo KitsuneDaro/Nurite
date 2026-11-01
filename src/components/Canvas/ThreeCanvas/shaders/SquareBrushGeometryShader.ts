@@ -52,69 +52,6 @@ export const squareBrushGeometryFunctions = `
     return min(pointProjection - lowerBound, upperBound - pointProjection);
   }
 
-  float getSquareBrushSideMargin(
-    vec2 point,
-    vec2 tangent,
-    vec2 previousSquareAxis,
-    vec2 currentSquareAxis,
-    vec2 segment,
-    float halfSize
-  ) {
-    vec2 normal = vec2(-tangent.y, tangent.x);
-    float edgeMargin = 0.0;
-    if (length(segment) <= 0.0001) {
-      edgeMargin = getSquareHullAxisMargin(
-        point, previousSquareAxis, previousSquareAxis, currentSquareAxis, segment, halfSize
-      );
-      edgeMargin = min(edgeMargin, getSquareHullAxisMargin(
-        point,
-        vec2(-previousSquareAxis.y, previousSquareAxis.x),
-        previousSquareAxis,
-        currentSquareAxis,
-        segment,
-        halfSize
-      ));
-      edgeMargin = min(edgeMargin, getSquareHullAxisMargin(
-        point, currentSquareAxis, previousSquareAxis, currentSquareAxis, segment, halfSize
-      ));
-      edgeMargin = min(edgeMargin, getSquareHullAxisMargin(
-        point,
-        vec2(-currentSquareAxis.y, currentSquareAxis.x),
-        previousSquareAxis,
-        currentSquareAxis,
-        segment,
-        halfSize
-      ));
-    } else {
-      edgeMargin = getSquareHullAxisMargin(
-        point, normal, previousSquareAxis, currentSquareAxis, segment, halfSize
-      );
-      if (abs(dot(previousSquareAxis, normal)) > abs(dot(previousSquareAxis, tangent))) {
-        edgeMargin = min(edgeMargin, getSquareHullAxisMargin(
-          point, previousSquareAxis, previousSquareAxis, currentSquareAxis, segment, halfSize
-        ));
-      }
-      vec2 previousPerpendicular = vec2(-previousSquareAxis.y, previousSquareAxis.x);
-      if (abs(dot(previousPerpendicular, normal)) > abs(dot(previousPerpendicular, tangent))) {
-        edgeMargin = min(edgeMargin, getSquareHullAxisMargin(
-          point, previousPerpendicular, previousSquareAxis, currentSquareAxis, segment, halfSize
-        ));
-      }
-      if (abs(dot(currentSquareAxis, normal)) > abs(dot(currentSquareAxis, tangent))) {
-        edgeMargin = min(edgeMargin, getSquareHullAxisMargin(
-          point, currentSquareAxis, previousSquareAxis, currentSquareAxis, segment, halfSize
-        ));
-      }
-      vec2 currentPerpendicular = vec2(-currentSquareAxis.y, currentSquareAxis.x);
-      if (abs(dot(currentPerpendicular, normal)) > abs(dot(currentPerpendicular, tangent))) {
-        edgeMargin = min(edgeMargin, getSquareHullAxisMargin(
-          point, currentPerpendicular, previousSquareAxis, currentSquareAxis, segment, halfSize
-        ));
-      }
-    }
-    return edgeMargin;
-  }
-
   float getSquareBrushSignedDistance(
     vec2 point,
     vec2 segment,
@@ -133,9 +70,28 @@ export const squareBrushGeometryFunctions = `
     vec2 segmentNormal = length(segment) > 0.0001
       ? normalize(vec2(-segment.y, segment.x))
       : vec2(-tangent.y, tangent.x);
-    float edgeDistance = getSquareBrushSideMargin(
-      point, tangent, previousSquareAxis, currentSquareAxis, segment, halfSize
+    float edgeDistance = getSquareHullAxisMargin(
+      point, previousSquareAxis, previousSquareAxis, currentSquareAxis, segment, halfSize
     );
+    edgeDistance = min(edgeDistance, getSquareHullAxisMargin(
+      point,
+      vec2(-previousSquareAxis.y, previousSquareAxis.x),
+      previousSquareAxis,
+      currentSquareAxis,
+      segment,
+      halfSize
+    ));
+    edgeDistance = min(edgeDistance, getSquareHullAxisMargin(
+      point, currentSquareAxis, previousSquareAxis, currentSquareAxis, segment, halfSize
+    ));
+    edgeDistance = min(edgeDistance, getSquareHullAxisMargin(
+      point,
+      vec2(-currentSquareAxis.y, currentSquareAxis.x),
+      previousSquareAxis,
+      currentSquareAxis,
+      segment,
+      halfSize
+    ));
     return min(edgeDistance, getSquareHullAxisMargin(
       point, segmentNormal, previousSquareAxis, currentSquareAxis, segment, halfSize
     ));
@@ -144,27 +100,11 @@ export const squareBrushGeometryFunctions = `
   float getSquareBrushStrokeEdgeDistance(
     vec2 point,
     vec2 segment,
-    vec2 previousDirection,
     float halfSize,
-    float followDirection
+    vec2 tangent
   ) {
-    vec2 tangent = getSquareTangent(segment, previousDirection);
-    vec2 previousTangent = getSquareTangent(previousDirection, tangent);
-    vec2 previousSquareAxis = followDirection > 0.5
-      ? rotateSquareAxis(previousTangent)
-      : vec2(1.0, 0.0);
-    vec2 currentSquareAxis = followDirection > 0.5
-      ? rotateSquareAxis(tangent)
-      : vec2(1.0, 0.0);
     float segmentLength = length(segment);
     float along = clamp(dot(point, tangent), 0.0, segmentLength);
-    vec2 centerlinePoint = tangent * along;
-    float edgeMargin = getSquareBrushSideMargin(
-      point, tangent, previousSquareAxis, currentSquareAxis, segment, halfSize
-    );
-    float centerlineMargin = getSquareBrushSideMargin(
-      centerlinePoint, tangent, previousSquareAxis, currentSquareAxis, segment, halfSize
-    );
-    return halfSize * clamp(edgeMargin / max(centerlineMargin, 0.0001), 0.0, 1.0);
+    return max(0.0, halfSize - length(point - tangent * along));
   }
 `
