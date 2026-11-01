@@ -1,7 +1,8 @@
-import { useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { HslColor } from 'react-colorful'
 import type { BrushShape, BrushType } from './types'
 import type { CanvasDrawingHandle } from './components/Canvas/ThreeCanvas/ThreeCanvas'
+import type { CanvasHistoryState } from './components/Canvas/ThreeCanvas/CanvasDrawingRenderer'
 import { CanvasWorkspace } from './components/Canvas/CanvasWorkspace/CanvasWorkspace'
 import { CanvasToolbar } from './components/Canvas/CanvasToolbar/CanvasToolbar'
 import { ColorPanel } from './components/Color/ColorPanel/ColorPanel'
@@ -17,6 +18,10 @@ import { hslToHex, hexToHsl } from './utils/color'
 import './App.css'
 
 function App() {
+  const [canvasHistory, setCanvasHistory] = useState<CanvasHistoryState>({
+    canUndo: false,
+    canRedo: false,
+  })
   const [color, setColor] = useState<HslColor>(() => {
     const { colors, selectedIndex } = usePaletteStore.getState()
     return hexToHsl(colors[selectedIndex])
@@ -39,6 +44,9 @@ function App() {
   const selectedPalette = usePaletteStore((state) => state.selectedIndex)
   const selectPaletteColor = usePaletteStore((state) => state.selectColor)
   const updateSelectedPaletteColor = usePaletteStore((state) => state.updateSelectedColor)
+  const updateCanvasHistory = useCallback((history: CanvasHistoryState) => {
+    setCanvasHistory(history)
+  }, [])
 
   function choosePalette(hex: string, index: number) {
     selectPaletteColor(index)
@@ -88,6 +96,16 @@ function App() {
     }
   }
 
+  function undoStroke() {
+    const history = drawingRef.current?.undo()
+    if (history) setCanvasHistory(history)
+  }
+
+  function redoStroke() {
+    const history = drawingRef.current?.redo()
+    if (history) setCanvasHistory(history)
+  }
+
   return (
     <div className="app-shell">
       <TopBar
@@ -107,6 +125,10 @@ function App() {
           onPaintTypeChange={setPaintType}
           onEraserChange={setEraserEnabled}
           onFollowDirectionChange={setFollowDirection}
+          canUndo={canvasHistory.canUndo}
+          canRedo={canvasHistory.canRedo}
+          onUndo={undoStroke}
+          onRedo={redoStroke}
         />
         <CanvasToolbar
           zoom={canvasZoom}
@@ -131,6 +153,7 @@ function App() {
           debugMode={debugMode}
           debugField={debugField}
           drawingRef={drawingRef}
+          onHistoryChange={updateCanvasHistory}
         />
         <ColorPanel
           mobileOpen={activeMobilePanel === 'color'}

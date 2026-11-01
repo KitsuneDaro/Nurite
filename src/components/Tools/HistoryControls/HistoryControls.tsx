@@ -2,13 +2,35 @@ import { Redo2, Undo2 } from 'lucide-react'
 import '../../Panel/ActionTile.css'
 import './HistoryControls.css'
 
-export function HistoryControls() {
+type HistoryControlsProps = {
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
+}
+
+export function HistoryControls({
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+}: HistoryControlsProps) {
   return (
     <div className="history-buttons">
-      <button className="action-tile" aria-label="元に戻す">
+      <button
+        className="action-tile"
+        aria-label="元に戻す"
+        disabled={!canUndo}
+        onClick={onUndo}
+      >
         <Undo2 size={20} /><span>元に戻す</span>
       </button>
-      <button className="action-tile" aria-label="やり直す">
+      <button
+        className="action-tile"
+        aria-label="やり直す"
+        disabled={!canRedo}
+        onClick={onRedo}
+      >
         <Redo2 size={20} /><span>やり直す</span>
       </button>
     </div>

@@ -8,6 +8,7 @@ import {
   type CanvasRenderStatus,
 } from '../ThreeCanvas/ThreeCanvas'
 import type { TextureDebugField } from '../ThreeCanvas/TextureDebugFields'
+import type { CanvasHistoryState } from '../ThreeCanvas/CanvasDrawingRenderer'
 import { useCanvasStroke } from './useCanvasStroke'
 import './CanvasWorkspace.css'
 
@@ -23,6 +24,7 @@ type CanvasWorkspaceProps = {
   debugMode: boolean
   debugField: TextureDebugField
   drawingRef: RefObject<CanvasDrawingHandle | null>
+  onHistoryChange: (history: CanvasHistoryState) => void
 }
 
 type Point = DrawingPoint
@@ -56,6 +58,7 @@ export function CanvasWorkspace({
   debugMode,
   debugField,
   drawingRef,
+  onHistoryChange,
 }: CanvasWorkspaceProps) {
   const viewportRef = useRef<HTMLDivElement>(null)
   const frameRef = useRef<HTMLDivElement>(null)
@@ -70,6 +73,7 @@ export function CanvasWorkspace({
     brushColor,
     followDirection,
     eraserEnabled,
+    onHistoryChange,
   })
   const zoomRef = useRef(zoom)
   const offsetRef = useRef<Point>({ x: 0, y: 0 })
@@ -122,7 +126,8 @@ export function CanvasWorkspace({
 
   const handleStatusChange = useCallback((status: CanvasRenderStatus) => {
     setRenderStatus(status)
-  }, [])
+    onHistoryChange(drawingRef.current?.getHistoryState() ?? { canUndo: false, canRedo: false })
+  }, [drawingRef, onHistoryChange])
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.pointerType === 'mouse' && event.button !== 0) return

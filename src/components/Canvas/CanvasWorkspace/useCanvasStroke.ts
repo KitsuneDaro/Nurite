@@ -8,6 +8,7 @@ import type {
   DrawingSegment,
 } from '../../../types'
 import type { CanvasDrawingHandle } from '../ThreeCanvas/ThreeCanvas'
+import type { CanvasHistoryState } from '../ThreeCanvas/CanvasDrawingRenderer'
 import { CANVAS_SIZE, MAX_STROKE_SEGMENTS } from '../ThreeCanvas/CanvasConstants'
 
 type CanvasStrokeOptions = {
@@ -19,6 +20,7 @@ type CanvasStrokeOptions = {
   brushColor: string
   followDirection: boolean
   eraserEnabled: boolean
+  onHistoryChange: (history: CanvasHistoryState) => void
 }
 
 export function useCanvasStroke({
@@ -30,12 +32,12 @@ export function useCanvasStroke({
   brushColor,
   followDirection,
   eraserEnabled,
+  onHistoryChange,
 }: CanvasStrokeOptions) {
   const activePointerRef = useRef<number | null>(null)
   const pendingPointsRef = useRef<DrawingPoint[]>([])
   const lastDrawnPointRef = useRef<DrawingPoint | null>(null)
   const previousDirectionRef = useRef<DrawingPoint | null>(null)
-  const nextStrokeIdRef = useRef(1)
   const nextSegmentIdRef = useRef(0)
   const activeStrokeIdRef = useRef(0)
   const drawingFrameRef = useRef<number | null>(null)
@@ -105,6 +107,7 @@ export function useCanvasStroke({
     pendingPointsRef.current = []
     lastDrawnPointRef.current = pending[pending.length - 1] ?? null
     if (nextSegmentIdRef.current >= MAX_STROKE_SEGMENTS) {
+      onHistoryChange(drawingRef.current?.endStroke() ?? { canUndo: false, canRedo: false })
       activePointerRef.current = null
       lastDrawnPointRef.current = null
       previousDirectionRef.current = null
@@ -112,7 +115,7 @@ export function useCanvasStroke({
     }
 
     previousDirectionRef.current = previousDirection
-  }, [drawingRef])
+  }, [drawingRef, onHistoryChange])
 
   const scheduleDrawingFrame = useCallback(() => {
     if (drawingFrameRef.current !== null) return
@@ -152,19 +155,16 @@ export function useCanvasStroke({
     if (!canvasPoint?.inside) return
 
     flushPendingPoints()
-    if (nextStrokeIdRef.current > 0xFFFFF) {
-      console.error('Canvas drawing has reached the metadata texture stroke-ID limit.')
-      return
-    }
+    const strokeId = drawingRef.current?.beginStroke()
+    if (strokeId === null || strokeId === undefined) return
     activePointerRef.current = pointerId
     lastDrawnPointRef.current = null
     previousDirectionRef.current = null
-    activeStrokeIdRef.current = nextStrokeIdRef.current
-    nextStrokeIdRef.current += 1
+    activeStrokeIdRef.current = strokeId
     nextSegmentIdRef.current = 0
     pendingPointsRef.current = [canvasPoint.point]
     scheduleDrawingFrame()
-  }, [flushPendingPoints, getCanvasPoint, scheduleDrawingFrame])
+  }, [drawingRef, flushPendingPoints, getCanvasPoint, scheduleDrawingFrame])
 
   const addStrokePoint = useCallback((pointerId: number, clientX: number, clientY: number) => {
     if (activePointerRef.current !== pointerId) return
@@ -179,10 +179,12 @@ export function useCanvasStroke({
     if (activePointerRef.current !== pointerId) return
 
     flushPendingPoints()
+    if (activePointerRef.current !== pointerId) return
     activePointerRef.current = null
     lastDrawnPointRef.current = null
     previousDirectionRef.current = null
-  }, [flushPendingPoints])
+    onHistoryChange(drawingRef.current?.endStroke() ?? { canUndo: false, canRedo: false })
+  }, [drawingRef, flushPendingPoints, onHistoryChange])
 
   const cancelStroke = useCallback(() => {
     if (activePointerRef.current !== null) {

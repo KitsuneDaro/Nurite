@@ -19,6 +19,10 @@ type ToolsPanelProps = {
   onPaintTypeChange: (type: BrushType) => void
   onEraserChange: (enabled: boolean) => void
   onFollowDirectionChange: (enabled: boolean) => void
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
 }
 
 export function ToolsPanel({
@@ -31,6 +35,10 @@ export function ToolsPanel({
   onPaintTypeChange,
   onEraserChange,
   onFollowDirectionChange,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: ToolsPanelProps) {
   return (
     <aside className={`panel tools-panel ${mobileOpen ? 'mobile-panel-open' : ''}`}>
@@ -56,7 +64,12 @@ export function ToolsPanel({
         onSelect={onPaintTypeChange}
       />
       <EraserToggle enabled={eraserEnabled} onChange={onEraserChange} />
-      <HistoryControls />
+      <HistoryControls
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onUndo={onUndo}
+        onRedo={onRedo}
+      />
       <PanelStatus />
     </aside>
   )

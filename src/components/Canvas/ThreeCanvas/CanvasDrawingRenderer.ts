@@ -29,6 +29,26 @@ const TEXTURE_NAMES = [
   'drawing-state-b',
 ] as const
 
+const UNDO_LIMIT = 5
+const HISTORY_SLOT_COUNT = UNDO_LIMIT + 1
+
+export type CanvasHistoryState = {
+  canUndo: boolean
+  canRedo: boolean
+}
+
+type RenderTargetSet = [
+  THREE.WebGLRenderTarget,
+  THREE.WebGLRenderTarget,
+  THREE.WebGLRenderTarget,
+  THREE.WebGLRenderTarget,
+]
+
+type CanvasSnapshot = {
+  strokeId: number
+  targets: RenderTargetSet
+}
+
 function createRenderTarget(type: TextureDataType = THREE.UnsignedByteType) {
   const target = new THREE.WebGLRenderTarget(CANVAS_SIZE, CANVAS_SIZE, {
     minFilter: THREE.NearestFilter,
@@ -43,6 +63,19 @@ function createRenderTarget(type: TextureDataType = THREE.UnsignedByteType) {
   return target
 }
 
+function createRenderTargetSet(): RenderTargetSet {
+  return [
+    createRenderTarget(),
+    createRenderTarget(),
+    createRenderTarget(),
+    createRenderTarget(),
+  ]
+}
+
+function disposeRenderTargetSet(targets: RenderTargetSet) {
+  targets.forEach((target) => target.dispose())
+}
+
 function createMetadataMatchUniforms(metadataTexture: THREE.Texture) {
   return {
     uStrokeId: { value: 0 },
@@ -54,11 +87,12 @@ function createMetadataMatchUniforms(metadataTexture: THREE.Texture) {
 
 export class CanvasDrawingRenderer {
   private readonly renderer: THREE.WebGLRenderer
-  private readonly metadataTarget: THREE.WebGLRenderTarget
-  private readonly colorTarget: THREE.WebGLRenderTarget
-  private readonly drawingStateTargetA: THREE.WebGLRenderTarget
-  private readonly drawingStateTargetB: THREE.WebGLRenderTarget
   private readonly canvasExportTarget: THREE.WebGLRenderTarget
+  private readonly snapshots: Array<CanvasSnapshot | null> =
+    Array.from({ length: HISTORY_SLOT_COUNT }, () => null)
+  private readonly copyMaterial: THREE.ShaderMaterial
+  private readonly copyScene: THREE.Scene
+  private readonly copyCamera: THREE.OrthographicCamera
   private readonly metadataMaterial: THREE.ShaderMaterial
   private readonly colorMaterial: THREE.ShaderMaterial
   private readonly drawingStateMaterialA: THREE.ShaderMaterial
@@ -68,12 +102,17 @@ export class CanvasDrawingRenderer {
   private readonly brushCamera: THREE.OrthographicCamera
   private readonly displayScene: THREE.Scene
   private readonly displayCamera: THREE.OrthographicCamera
+  private readonly displayMaterial: THREE.MeshBasicMaterial
   private readonly debugScene: THREE.Scene
   private readonly debugCamera: THREE.OrthographicCamera
   private readonly debugMaterial: THREE.ShaderMaterial
   private debugMode = false
   private debugField = DEFAULT_TEXTURE_DEBUG_FIELD
   private disposed = false
+  private currentStrokeId = 0
+  private maxStrokeId = 0
+  private activeStrokeId: number | null = null
+  private activeStrokeHasDrawing = false
 
   constructor(container: HTMLElement) {
     this.renderer = new THREE.WebGLRenderer({
@@ -87,12 +126,34 @@ export class CanvasDrawingRenderer {
     this.renderer.domElement.setAttribute('aria-label', '1024×1024 Three.js キャンバス')
     container.appendChild(this.renderer.domElement)
 
-    this.metadataTarget = createRenderTarget()
-    this.colorTarget = createRenderTarget()
-    this.drawingStateTargetA = createRenderTarget()
-    this.drawingStateTargetB = createRenderTarget()
+    this.snapshots[0] = { strokeId: 0, targets: createRenderTargetSet() }
     this.canvasExportTarget = createRenderTarget()
     this.canvasExportTarget.texture.colorSpace = THREE.SRGBColorSpace
+
+    this.copyMaterial = new THREE.ShaderMaterial({
+      uniforms: { uSource: { value: this.colorTarget.texture } },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform sampler2D uSource;
+        void main() {
+          gl_FragColor = texture2D(uSource, vUv);
+        }
+      `,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    })
+    this.copyScene = new THREE.Scene()
+    this.copyScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.copyMaterial))
+    this.copyCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10)
+    this.copyCamera.position.z = 2
 
     this.metadataMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -167,10 +228,10 @@ export class CanvasDrawingRenderer {
     this.brushCamera.position.z = 2
 
     const displayGeometry = new THREE.PlaneGeometry(CANVAS_SIZE, CANVAS_SIZE)
-    const displayMaterial = new THREE.MeshBasicMaterial({ map: this.colorTarget.texture })
+    this.displayMaterial = new THREE.MeshBasicMaterial({ map: this.colorTarget.texture })
     this.displayScene = new THREE.Scene()
     this.displayScene.background = new THREE.Color('#FFFFFF')
-    this.displayScene.add(new THREE.Mesh(displayGeometry, displayMaterial))
+    this.displayScene.add(new THREE.Mesh(displayGeometry, this.displayMaterial))
     this.displayCamera = new THREE.OrthographicCamera(
       -CANVAS_SIZE / 2,
       CANVAS_SIZE / 2,
@@ -217,6 +278,22 @@ export class CanvasDrawingRenderer {
       1,
     )
     this.renderOutput()
+  }
+
+  private get metadataTarget() {
+    return this.getCurrentTargets()[0]
+  }
+
+  private get colorTarget() {
+    return this.getCurrentTargets()[1]
+  }
+
+  private get drawingStateTargetA() {
+    return this.getCurrentTargets()[2]
+  }
+
+  private get drawingStateTargetB() {
+    return this.getCurrentTargets()[3]
   }
 
   setDebugField(field: TextureDebugField) {
@@ -267,6 +344,7 @@ export class CanvasDrawingRenderer {
   async exportCanvas() {
     if (this.disposed) throw new Error('Cannot export the canvas after the renderer is disposed.')
 
+    this.updateDisplayedTextures()
     this.renderer.setRenderTarget(this.canvasExportTarget)
     this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
     this.renderer.setScissorTest(false)
@@ -309,6 +387,73 @@ export class CanvasDrawingRenderer {
     downloadBlob(blob, `webpainter-${timestamp}.png`)
   }
 
+  beginStroke(): number | null {
+    if (this.disposed) return null
+    if (this.activeStrokeId !== null) {
+      throw new Error('Cannot begin a stroke before ending the active stroke.')
+    }
+    const strokeId = this.currentStrokeId + 1
+    if (strokeId > 0xFFFFF) {
+      console.error('Canvas drawing has reached the metadata texture stroke-ID limit.')
+      return null
+    }
+
+    this.discardRedoHistory()
+    this.saveSnapshot(strokeId)
+    this.activeStrokeId = strokeId
+    this.activeStrokeHasDrawing = false
+    return strokeId
+  }
+
+  endStroke(): CanvasHistoryState {
+    if (this.activeStrokeId === null) return this.getHistoryState()
+
+    const strokeId = this.activeStrokeId
+    this.activeStrokeId = null
+    if (!this.activeStrokeHasDrawing) {
+      this.disposeSnapshot(strokeId)
+      this.activeStrokeHasDrawing = false
+      return this.getHistoryState()
+    }
+
+    this.currentStrokeId = strokeId
+    this.maxStrokeId = strokeId
+    this.activeStrokeHasDrawing = false
+    return this.getHistoryState()
+  }
+
+  undo(): CanvasHistoryState {
+    if (this.activeStrokeId !== null) throw new Error('Cannot undo while a stroke is active.')
+    const previousStrokeId = this.currentStrokeId - 1
+    if (previousStrokeId < 0 || !this.hasSnapshot(previousStrokeId)) {
+      return this.getHistoryState()
+    }
+
+    this.currentStrokeId = previousStrokeId
+    this.renderOutput()
+    return this.getHistoryState()
+  }
+
+  redo(): CanvasHistoryState {
+    if (this.activeStrokeId !== null) throw new Error('Cannot redo while a stroke is active.')
+    const nextStrokeId = this.currentStrokeId + 1
+    if (nextStrokeId > this.maxStrokeId || !this.hasSnapshot(nextStrokeId)) {
+      return this.getHistoryState()
+    }
+
+    this.currentStrokeId = nextStrokeId
+    this.renderOutput()
+    return this.getHistoryState()
+  }
+
+  getHistoryState(): CanvasHistoryState {
+    return {
+      canUndo: this.currentStrokeId > 0 && this.hasSnapshot(this.currentStrokeId - 1),
+      canRedo: this.currentStrokeId < this.maxStrokeId
+        && this.hasSnapshot(this.currentStrokeId + 1),
+    }
+  }
+
   drawFrame(
     segments: readonly DrawingSegment[],
     style: BrushStrokeStyle,
@@ -316,7 +461,26 @@ export class CanvasDrawingRenderer {
     startingSegmentId: number,
   ) {
     if (this.disposed || segments.length === 0) return 0
+    const processedSegmentCount = this.renderFrame(
+      segments,
+      style,
+      strokeId,
+      startingSegmentId,
+    )
+    if (this.activeStrokeId === strokeId && processedSegmentCount > 0) {
+      this.activeStrokeHasDrawing = true
+    }
+    return processedSegmentCount
+  }
 
+  private renderFrame(
+    segments: readonly DrawingSegment[],
+    style: BrushStrokeStyle,
+    strokeId: number,
+    startingSegmentId: number,
+  ) {
+    if (this.disposed || segments.length === 0) return 0
+    this.updateDisplayedTextures()
     const previousAutoClear = this.renderer.autoClear
     this.renderer.autoClear = false
     this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
@@ -392,8 +556,17 @@ export class CanvasDrawingRenderer {
   dispose() {
     if (this.disposed) return
     this.disposed = true
+    for (const snapshot of this.snapshots) {
+      if (snapshot) disposeRenderTargetSet(snapshot.targets)
+    }
+    this.snapshots.fill(null)
     this.brushScene.remove(this.brushMesh)
     this.brushMesh.geometry.dispose()
+    this.copyScene.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return
+      object.geometry.dispose()
+    })
+    this.copyMaterial.dispose()
     this.metadataMaterial.dispose()
     this.colorMaterial.dispose()
     this.drawingStateMaterialA.dispose()
@@ -407,10 +580,6 @@ export class CanvasDrawingRenderer {
         object.material.dispose()
       }
     })
-    this.metadataTarget.dispose()
-    this.colorTarget.dispose()
-    this.drawingStateTargetA.dispose()
-    this.drawingStateTargetB.dispose()
     this.canvasExportTarget.dispose()
     this.debugScene.traverse((object) => {
       if (!(object instanceof THREE.Mesh)) return
@@ -425,6 +594,68 @@ export class CanvasDrawingRenderer {
     this.renderer.domElement.remove()
   }
 
+  private saveSnapshot(strokeId: number) {
+    const index = strokeId % HISTORY_SLOT_COUNT
+    const previousSnapshot = this.snapshots[index]
+    if (previousSnapshot) disposeRenderTargetSet(previousSnapshot.targets)
+    this.snapshots[index] = null
+
+    const targets = createRenderTargetSet()
+    try {
+      const currentTargets = this.getDrawingTargets()
+      for (let targetIndex = 0; targetIndex < targets.length; targetIndex += 1) {
+        const source = currentTargets[targetIndex]
+        const target = targets[targetIndex]
+        if (!source || !target) throw new Error('A texture snapshot target is missing.')
+        this.copyTarget(source, target)
+      }
+      this.snapshots[index] = { strokeId, targets }
+    } catch (error) {
+      disposeRenderTargetSet(targets)
+      throw error
+    }
+  }
+
+  private hasSnapshot(strokeId: number) {
+    return this.snapshots[strokeId % HISTORY_SLOT_COUNT]?.strokeId === strokeId
+  }
+
+  private disposeSnapshot(strokeId: number) {
+    const index = strokeId % HISTORY_SLOT_COUNT
+    const snapshot = this.snapshots[index]
+    if (!snapshot || snapshot.strokeId !== strokeId) return
+    disposeRenderTargetSet(snapshot.targets)
+    this.snapshots[index] = null
+  }
+
+  private discardRedoHistory() {
+    for (let strokeId = this.currentStrokeId + 1; strokeId <= this.maxStrokeId; strokeId += 1) {
+      this.disposeSnapshot(strokeId)
+    }
+    this.maxStrokeId = this.currentStrokeId
+  }
+
+  private getDrawingTargets(): RenderTargetSet {
+    const strokeId = this.activeStrokeId ?? this.currentStrokeId
+    const snapshot = this.snapshots[strokeId % HISTORY_SLOT_COUNT]
+    if (!snapshot || snapshot.strokeId !== strokeId) {
+      throw new Error(`The texture set for current stroke ${strokeId} is unavailable.`)
+    }
+    return snapshot.targets
+  }
+
+  private getCurrentTargets() {
+    return this.getDrawingTargets()
+  }
+
+  private copyTarget(source: THREE.WebGLRenderTarget, destination: THREE.WebGLRenderTarget) {
+    this.copyMaterial.uniforms.uSource.value = source.texture
+    this.renderer.setRenderTarget(destination)
+    this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    this.renderer.setScissorTest(false)
+    this.renderer.render(this.copyScene, this.copyCamera)
+  }
+
   private clearTarget(target: THREE.WebGLRenderTarget, color: THREE.ColorRepresentation, alpha: number) {
     this.renderer.setRenderTarget(target)
     this.renderer.setClearColor(color, alpha)
@@ -432,6 +663,7 @@ export class CanvasDrawingRenderer {
   }
 
   private renderOutput() {
+    this.updateDisplayedTextures()
     this.renderer.setRenderTarget(null)
     this.renderer.setScissorTest(false)
     this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
@@ -439,6 +671,25 @@ export class CanvasDrawingRenderer {
       this.debugMode ? this.debugScene : this.displayScene,
       this.debugMode ? this.debugCamera : this.displayCamera,
     )
+  }
+
+  private updateDisplayedTextures() {
+    this.displayMaterial.map = this.colorTarget.texture
+    for (const material of [
+      this.colorMaterial,
+      this.drawingStateMaterialA,
+      this.drawingStateMaterialB,
+    ]) {
+      material.uniforms.uMetadataTexture.value = this.metadataTarget.texture
+    }
+    const targets: Record<TextureDebugSource, THREE.WebGLRenderTarget> = {
+      metadata: this.metadataTarget,
+      color: this.colorTarget,
+      'drawing-state-a': this.drawingStateTargetA,
+      'drawing-state-b': this.drawingStateTargetB,
+    }
+    this.debugMaterial.uniforms.uTexture.value =
+      targets[getTextureDebugField(this.debugField).source].texture
   }
 
   private setSegmentUniforms(

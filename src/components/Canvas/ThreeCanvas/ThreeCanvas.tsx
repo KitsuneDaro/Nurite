@@ -1,6 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { BrushStrokeStyle, DrawingSegment } from '../../../types'
-import { CanvasDrawingRenderer } from './CanvasDrawingRenderer'
+import {
+  CanvasDrawingRenderer,
+  type CanvasHistoryState,
+} from './CanvasDrawingRenderer'
 import {
   getTextureDebugField,
   type TextureDebugField,
@@ -10,6 +13,8 @@ import './ThreeCanvas.css'
 export type CanvasRenderStatus = 'loading' | 'ready' | 'error'
 
 export type CanvasDrawingHandle = {
+  beginStroke: () => number | null
+  endStroke: () => CanvasHistoryState
   drawFrame: (
     segments: readonly DrawingSegment[],
     style: BrushStrokeStyle,
@@ -18,6 +23,9 @@ export type CanvasDrawingHandle = {
   ) => number
   setDebugMode: (enabled: boolean) => void
   setDebugField: (field: TextureDebugField) => void
+  undo: () => CanvasHistoryState
+  redo: () => CanvasHistoryState
+  getHistoryState: () => CanvasHistoryState
   exportCanvas: () => Promise<void>
   exportTextures: () => Promise<void>
 }
@@ -34,6 +42,12 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
     const drawingRendererRef = useRef<CanvasDrawingRenderer | null>(null)
 
     useImperativeHandle(ref, () => ({
+      beginStroke() {
+        return drawingRendererRef.current?.beginStroke() ?? null
+      },
+      endStroke() {
+        return drawingRendererRef.current?.endStroke() ?? { canUndo: false, canRedo: false }
+      },
       drawFrame(segments, style, strokeId, startingSegmentId) {
         return drawingRendererRef.current?.drawFrame(
           segments,
@@ -47,6 +61,16 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
       },
       setDebugField(field) {
         drawingRendererRef.current?.setDebugField(field)
+      },
+      undo() {
+        return drawingRendererRef.current?.undo() ?? { canUndo: false, canRedo: false }
+      },
+      redo() {
+        return drawingRendererRef.current?.redo() ?? { canUndo: false, canRedo: false }
+      },
+      getHistoryState() {
+        return drawingRendererRef.current?.getHistoryState()
+          ?? { canUndo: false, canRedo: false }
       },
       exportCanvas() {
         return drawingRendererRef.current?.exportCanvas()

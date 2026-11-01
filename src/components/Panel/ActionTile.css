@@ -25,3 +25,19 @@
   border-color: #526a7e;
   background: #2a3543;
 }
+
+.action-tile:disabled {
+  border-color: #252d38;
+  color: #707c8b;
+  background: #171d26;
+  cursor: not-allowed;
+}
+
+.action-tile:disabled svg {
+  color: #65707e;
+}
+
+.action-tile:disabled:hover {
+  border-color: #252d38;
+  background: #171d26;
+}
