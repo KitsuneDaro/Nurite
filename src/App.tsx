@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import type { HslColor } from 'react-colorful'
-import type { BrushShape, BrushType } from './types'
+import type { BrushShape, BrushType, ToolType } from './types'
 import type { CanvasDrawingHandle } from './components/Canvas/ThreeCanvas/ThreeCanvas'
 import type { CanvasHistoryState } from './components/Canvas/ThreeCanvas/CanvasDrawingRenderer'
 import { CanvasWorkspace } from './components/Canvas/CanvasWorkspace/CanvasWorkspace'
@@ -30,7 +30,7 @@ function App() {
   const [paintType, setPaintType] = useState<BrushType>('oil')
   const [followDirection, setFollowDirection] = useState(false)
   const [brushSize, setBrushSize] = useState(30)
-  const [eraserEnabled, setEraserEnabled] = useState(false)
+  const [toolType, setToolType] = useState<ToolType>('brush')
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [debugMode, setDebugMode] = useState(false)
@@ -119,11 +119,11 @@ function App() {
           mobileOpen={activeMobilePanel === 'tools'}
           brushShape={brushShape}
           paintType={paintType}
-          eraserEnabled={eraserEnabled}
+          toolType={toolType}
           followDirection={followDirection}
           onBrushShapeChange={setBrushShape}
           onPaintTypeChange={setPaintType}
-          onEraserChange={setEraserEnabled}
+          onToolTypeChange={setToolType}
           onFollowDirectionChange={setFollowDirection}
           canUndo={canvasHistory.canUndo}
           canRedo={canvasHistory.canRedo}
@@ -149,7 +149,9 @@ function App() {
           brushSize={brushSize}
           brushColor={hslToHex(color)}
           followDirection={followDirection}
-          eraserEnabled={eraserEnabled}
+          toolType={toolType}
+          onToolTypeChange={setToolType}
+          onEyedropperPick={(hex) => updateColor(hexToHsl(hex))}
           debugMode={debugMode}
           debugField={debugField}
           drawingRef={drawingRef}

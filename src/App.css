@@ -215,7 +215,7 @@
     gap: 3px;
   }
 
-  .tools-panel .eraser-toggle {
+  .tools-panel .tool-type-selector {
     min-height: 38px;
     margin-bottom: 9px;
   }

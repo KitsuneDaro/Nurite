@@ -253,6 +253,12 @@ export function useCanvasStroke({
     }
   }, [frameRef])
 
+  const pickColor = useCallback((clientX: number, clientY: number) => {
+    const canvasPoint = getCanvasPoint(clientX, clientY)
+    if (!canvasPoint?.inside) return null
+    return drawingRef.current?.sampleColor(canvasPoint.point) ?? null
+  }, [drawingRef, getCanvasPoint])
+
   const startStroke = useCallback((pointerId: number, clientX: number, clientY: number) => {
     const canvasPoint = getCanvasPoint(clientX, clientY)
     if (!canvasPoint?.inside) return
@@ -303,5 +309,5 @@ export function useCanvasStroke({
     }
   }, [endStroke])
 
-  return { startStroke, addStrokePoint, endStroke, cancelStroke }
+  return { startStroke, addStrokePoint, endStroke, cancelStroke, pickColor }
 }

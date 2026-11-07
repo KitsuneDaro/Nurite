@@ -490,6 +490,39 @@ export class CanvasDrawingRenderer {
     )
   }
 
+  sampleColor(point: DrawingPoint): string {
+    if (
+      !Number.isFinite(point.x)
+      || !Number.isFinite(point.y)
+      || point.x < 0
+      || point.y < 0
+      || point.x >= CANVAS_SIZE
+      || point.y >= CANVAS_SIZE
+    ) {
+      throw new RangeError('The color sample point is outside the canvas.')
+    }
+
+    const pixel = new Uint8Array(4)
+    this.renderer.readRenderTargetPixels(
+      this.colorTarget,
+      Math.floor(point.x),
+      CANVAS_SIZE - 1 - Math.floor(point.y),
+      1,
+      1,
+      pixel,
+    )
+    const linearToSrgb = (channel: number) => {
+      const linear = channel / 255
+      const srgb = linear <= 0.0031308
+        ? linear * 12.92
+        : 1.055 * linear ** (1 / 2.4) - 0.055
+      return Math.round(Math.min(1, Math.max(0, srgb)) * 255)
+        .toString(16)
+        .padStart(2, '0')
+    }
+    return `#${linearToSrgb(pixel[0] ?? 0)}${linearToSrgb(pixel[1] ?? 0)}${linearToSrgb(pixel[2] ?? 0)}`
+  }
+
   beginStroke(): number | null {
     if (this.disposed) return null
     const strokeId = this.history.beginStroke()

@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
-import type { BrushStrokeStyle, DrawingSegment } from '../../../types'
+import type { BrushStrokeStyle, DrawingPoint, DrawingSegment } from '../../../types'
 import {
   CanvasDrawingRenderer,
   type CanvasHistoryState,
@@ -26,6 +26,7 @@ export type CanvasDrawingHandle = {
   undo: () => CanvasHistoryState
   redo: () => CanvasHistoryState
   getHistoryState: () => CanvasHistoryState
+  sampleColor: (point: DrawingPoint) => string
   exportCanvas: () => Promise<void>
   exportTextures: () => Promise<void>
 }
@@ -71,6 +72,11 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
       getHistoryState() {
         return drawingRendererRef.current?.getHistoryState()
           ?? { canUndo: false, canRedo: false }
+      },
+      sampleColor(point) {
+        const renderer = drawingRendererRef.current
+        if (!renderer) throw new Error('The drawing renderer is not ready.')
+        return renderer.sampleColor(point)
       },
       exportCanvas() {
         return drawingRendererRef.current?.exportCanvas()

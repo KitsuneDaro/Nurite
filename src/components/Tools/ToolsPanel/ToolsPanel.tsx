@@ -1,7 +1,7 @@
 import { SlidersHorizontal } from 'lucide-react'
 import { brushShapes, paintTypes } from '../../../constants/paint'
-import type { BrushShape, BrushType } from '../../../types'
-import { EraserToggle } from '../EraserToggle/EraserToggle'
+import type { BrushShape, BrushType, ToolType } from '../../../types'
+import { ToolTypeSelector } from '../ToolTypeSelector/ToolTypeSelector'
 import { DirectionToggle } from '../DirectionToggle/DirectionToggle'
 import { HistoryControls } from '../HistoryControls/HistoryControls'
 import { PanelHeading } from '../../Panel/PanelHeading/PanelHeading'
@@ -13,11 +13,11 @@ type ToolsPanelProps = {
   mobileOpen: boolean
   brushShape: BrushShape
   paintType: BrushType
-  eraserEnabled: boolean
+  toolType: ToolType
   followDirection: boolean
   onBrushShapeChange: (shape: BrushShape) => void
   onPaintTypeChange: (type: BrushType) => void
-  onEraserChange: (enabled: boolean) => void
+  onToolTypeChange: (toolType: ToolType) => void
   onFollowDirectionChange: (enabled: boolean) => void
   canUndo: boolean
   canRedo: boolean
@@ -29,11 +29,11 @@ export function ToolsPanel({
   mobileOpen,
   brushShape,
   paintType,
-  eraserEnabled,
+  toolType,
   followDirection,
   onBrushShapeChange,
   onPaintTypeChange,
-  onEraserChange,
+  onToolTypeChange,
   onFollowDirectionChange,
   canUndo,
   canRedo,
@@ -65,7 +65,7 @@ export function ToolsPanel({
         onSelect={onPaintTypeChange}
         unavailable={['watercolor']}
       />
-      <EraserToggle enabled={eraserEnabled} onChange={onEraserChange} />
+      <ToolTypeSelector selected={toolType} onChange={onToolTypeChange} />
       <HistoryControls
         canUndo={canUndo}
         canRedo={canRedo}

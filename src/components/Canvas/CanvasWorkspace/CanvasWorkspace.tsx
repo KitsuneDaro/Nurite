@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { BrushShape, BrushType, DrawingPoint } from '../../../types'
+import type { BrushShape, BrushType, DrawingPoint, ToolType } from '../../../types'
 import type { RefObject } from 'react'
 import {
   ThreeCanvas,
@@ -20,7 +20,9 @@ type CanvasWorkspaceProps = {
   brushSize: number
   brushColor: string
   followDirection: boolean
-  eraserEnabled: boolean
+  toolType: ToolType
+  onToolTypeChange: (toolType: ToolType) => void
+  onEyedropperPick: (color: string) => void
   debugMode: boolean
   debugField: TextureDebugField
   drawingRef: RefObject<CanvasDrawingHandle | null>
@@ -54,7 +56,9 @@ export function CanvasWorkspace({
   brushSize,
   brushColor,
   followDirection,
-  eraserEnabled,
+  toolType,
+  onToolTypeChange,
+  onEyedropperPick,
   debugMode,
   debugField,
   drawingRef,
@@ -72,7 +76,7 @@ export function CanvasWorkspace({
     brushSize,
     brushColor,
     followDirection,
-    eraserEnabled,
+    eraserEnabled: toolType === 'eraser',
     onHistoryChange,
   })
   const zoomRef = useRef(zoom)
@@ -140,6 +144,15 @@ export function CanvasWorkspace({
     if (touchPointsRef.current.size >= 2) {
       stroke.cancelStroke()
       pinchStateRef.current = getPinchMetrics(Array.from(touchPointsRef.current.values()))
+      return
+    }
+
+    if (toolType === 'eyedropper') {
+      const sampledColor = stroke.pickColor(event.clientX, event.clientY)
+      if (sampledColor) {
+        onEyedropperPick(sampledColor)
+        onToolTypeChange('brush')
+      }
       return
     }
 
