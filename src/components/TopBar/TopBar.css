@@ -1,4 +1,5 @@
 .topbar {
+  position: relative;
   height: 66px;
   flex: 0 0 auto;
   padding: 0 30px;
@@ -86,6 +87,24 @@
   box-shadow: 0 0 8px rgba(101, 189, 157, 0.5);
 }
 
+.project-file-input {
+  display: none;
+}
+
+.project-file-status {
+  position: absolute;
+  top: 54px;
+  right: 30px;
+  z-index: 1;
+  max-width: min(440px, calc(100vw - 40px));
+  padding: 6px 9px;
+  border: 1px solid #2d3746;
+  border-radius: 6px;
+  color: #b9c3d0;
+  background: #171c25;
+  font-size: 11px;
+}
+
 .topbar-button,
 .export-button {
   border: 1px solid #2d3746;
@@ -148,6 +167,10 @@
   .canvas-export-status {
     right: 18px;
   }
+
+  .project-file-status {
+    right: 18px;
+  }
 }
 
 @media (max-width: 760px) {
@@ -183,6 +206,10 @@
   }
 
   .canvas-export-status {
+    right: 14px;
+  }
+
+  .project-file-status {
     right: 14px;
   }
 }

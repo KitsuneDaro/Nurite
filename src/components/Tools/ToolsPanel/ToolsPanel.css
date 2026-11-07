@@ -24,23 +24,48 @@
 @media (max-width: 520px) {
   .tools-panel.mobile-panel-open {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-content: start;
     column-gap: 13px;
+    row-gap: 8px;
   }
 
-  .tools-panel .panel-heading,
-  .tools-panel .tool-type-selector,
-  .tools-panel .history-buttons,
-  .tools-panel .panel-heading {
+  .tools-panel.mobile-panel-open > .panel-heading {
+    grid-column: 1 / -1;
+    grid-row: 1;
     margin-bottom: 13px;
   }
 
-  .tools-panel .control-section {
-    margin-bottom: 13px;
+  .tools-panel.mobile-panel-open > .control-section:nth-of-type(1) {
+    grid-column: 1;
+    grid-row: 2;
+    margin-bottom: 0;
   }
 
-  .tools-panel .tool-type-selector {
-    margin-bottom: 12px;
+  .tools-panel.mobile-panel-open > .direction-toggle {
+    grid-column: 1;
+    grid-row: 3;
+    margin: 0;
+  }
+
+  .tools-panel.mobile-panel-open > .control-section:nth-of-type(2) {
+    grid-column: 2;
+    grid-row: 2;
+    margin-bottom: 0;
+  }
+
+  .tools-panel.mobile-panel-open > .tool-type-selector {
+    grid-column: 2;
+    grid-row: 3;
+    margin: 0;
+  }
+
+  .tools-panel.mobile-panel-open > .history-buttons {
+    grid-column: 1 / -1;
+    grid-row: 4;
+  }
+
+  .tools-panel.mobile-panel-open .tool-choice {
+    height: 54px;
   }
 }

@@ -108,8 +108,7 @@
   background: #263c4d;
 }
 
-.texture-debug-toggle,
-.texture-export-button {
+.texture-debug-toggle {
   min-height: 27px;
   padding: 0 8px;
   display: inline-flex;
@@ -125,8 +124,7 @@
   cursor: pointer;
 }
 
-.texture-debug-toggle:hover,
-.texture-export-button:hover:not(:disabled) {
+.texture-debug-toggle:hover {
   color: #e0e8f2;
   background: #2a3544;
 }
@@ -135,24 +133,6 @@
   border-color: #6387a2;
   color: #d6ebfb;
   background: #263c4d;
-}
-
-.texture-export-button:disabled {
-  opacity: 0.6;
-  cursor: wait;
-}
-
-.texture-export-status {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 12px;
-  z-index: 2;
-  padding: 5px 8px;
-  border: 1px solid #354050;
-  border-radius: 6px;
-  color: #c4d1df;
-  background: #1a202b;
-  font-size: 10px;
 }
 
 .canvas-toolbar {
@@ -204,16 +184,14 @@
     flex: 0 0 auto;
   }
 
-  .texture-debug-toggle,
-  .texture-export-button {
+  .texture-debug-toggle {
     min-height: 25px;
     padding: 0 5px;
     gap: 3px;
     font-size: 8px;
   }
 
-  .texture-debug-toggle span,
-  .texture-export-button span {
+  .texture-debug-toggle span {
     display: none;
   }
 }

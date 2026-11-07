@@ -14,6 +14,10 @@ import {
   DEFAULT_TEXTURE_DEBUG_FIELD,
   type TextureDebugField,
 } from './components/Canvas/ThreeCanvas/TextureDebugFields'
+import {
+  downloadCanvasProject,
+  readCanvasProject,
+} from './components/Canvas/ThreeCanvas/CanvasProjectFile'
 import { hslToHex, hexToHsl } from './utils/color'
 import './App.css'
 
@@ -35,8 +39,8 @@ function App() {
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [debugMode, setDebugMode] = useState(false)
   const [debugField, setDebugField] = useState<TextureDebugField>(DEFAULT_TEXTURE_DEBUG_FIELD)
-  const [exportingTextures, setExportingTextures] = useState(false)
-  const [textureExportStatus, setTextureExportStatus] = useState<string | null>(null)
+  const [projectFileBusy, setProjectFileBusy] = useState(false)
+  const [projectFileStatus, setProjectFileStatus] = useState<string | null>(null)
   const [exportingCanvas, setExportingCanvas] = useState(false)
   const [canvasExportStatus, setCanvasExportStatus] = useState<string | null>(null)
   const drawingRef = useRef<CanvasDrawingHandle>(null)
@@ -58,22 +62,66 @@ function App() {
     updateSelectedPaletteColor(hslToHex(nextColor))
   }
 
-  async function exportTextures() {
+  async function saveProject() {
     if (!drawingRef.current) {
-      setTextureExportStatus('キャンバスの準備ができていません')
+      setProjectFileStatus('キャンバスの準備ができていません')
       return
     }
 
-    setExportingTextures(true)
-    setTextureExportStatus(null)
+    setProjectFileBusy(true)
+    setProjectFileStatus(null)
     try {
-      await drawingRef.current.exportTextures()
-      setTextureExportStatus('テクスチャZIPを作成しました')
+      downloadCanvasProject({
+        settings: {
+          brushShape,
+          paintType,
+          followDirection,
+          brushSize,
+          toolType,
+          color: hslToHex(color),
+          paletteColors: [...paletteColors],
+          selectedPalette,
+        },
+        textures: drawingRef.current.exportProjectTextures(),
+      })
+      setProjectFileStatus('編集ファイルを保存しました')
     } catch (error) {
-      console.error('Failed to export canvas textures.', error)
-      setTextureExportStatus('テクスチャのエクスポートに失敗しました')
+      console.error('Failed to save the canvas project.', error)
+      setProjectFileStatus('編集ファイルの保存に失敗しました')
     } finally {
-      setExportingTextures(false)
+      setProjectFileBusy(false)
+    }
+  }
+
+  async function loadProject(file: File) {
+    setProjectFileBusy(true)
+    setProjectFileStatus(null)
+    try {
+      const project = await readCanvasProject(file)
+      const drawing = drawingRef.current
+      if (!drawing) throw new Error('The canvas renderer is not ready.')
+      drawing.importProjectTextures(project.textures)
+      setBrushShape(project.settings.brushShape)
+      setPaintType(project.settings.paintType)
+      setFollowDirection(project.settings.followDirection)
+      setBrushSize(project.settings.brushSize)
+      setToolType(project.settings.toolType)
+      setColor(hexToHsl(project.settings.color))
+      usePaletteStore.setState({
+        colors: project.settings.paletteColors,
+        selectedIndex: project.settings.selectedPalette,
+      })
+      setCanvasHistory(drawing.getHistoryState())
+      setProjectFileStatus('編集ファイルを読み込みました')
+    } catch (error) {
+      console.error('Failed to load the canvas project.', error)
+      setProjectFileStatus(
+        error instanceof Error
+          ? `編集ファイルを読み込めませんでした: ${error.message}`
+          : '編集ファイルを読み込めませんでした',
+      )
+    } finally {
+      setProjectFileBusy(false)
     }
   }
 
@@ -109,6 +157,10 @@ function App() {
   return (
     <div className="app-shell">
       <TopBar
+        onSaveProject={saveProject}
+        onLoadProject={loadProject}
+        projectFileBusy={projectFileBusy}
+        projectFileStatus={projectFileStatus}
         onExportCanvas={exportCanvas}
         exportingCanvas={exportingCanvas}
         canvasExportStatus={canvasExportStatus}
@@ -137,9 +189,6 @@ function App() {
           onDebugModeChange={setDebugMode}
           debugField={debugField}
           onDebugFieldChange={setDebugField}
-          onExportTextures={exportTextures}
-          exportingTextures={exportingTextures}
-          textureExportStatus={textureExportStatus}
         />
         <CanvasWorkspace
           zoom={canvasZoom}

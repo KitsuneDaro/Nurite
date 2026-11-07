@@ -1,6 +1,6 @@
 import type { Camera, Scene, WebGLRenderer, WebGLRenderTarget } from 'three'
 import { CANVAS_SIZE } from './CanvasConstants'
-import { downloadBlob } from './CanvasTextureExport'
+import { downloadBlob } from '../../../utils/ZipArchive'
 
 export async function exportCanvasImage(
   renderer: WebGLRenderer,

@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
 import type { BrushStrokeStyle, DrawingPoint, DrawingSegment } from '../../../types'
+import type { CanvasProjectTextures } from './CanvasProjectFile'
 import {
   CanvasDrawingRenderer,
   type CanvasHistoryState,
@@ -28,7 +29,8 @@ export type CanvasDrawingHandle = {
   getHistoryState: () => CanvasHistoryState
   sampleColor: (point: DrawingPoint) => string
   exportCanvas: () => Promise<void>
-  exportTextures: () => Promise<void>
+  exportProjectTextures: () => CanvasProjectTextures
+  importProjectTextures: (textures: CanvasProjectTextures) => void
 }
 
 type ThreeCanvasProps = {
@@ -82,9 +84,15 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
         return drawingRendererRef.current?.exportCanvas()
           ?? Promise.reject(new Error('The drawing renderer is not ready.'))
       },
-      exportTextures() {
-        return drawingRendererRef.current?.exportTextures()
-          ?? Promise.reject(new Error('The drawing renderer is not ready.'))
+      exportProjectTextures() {
+        const renderer = drawingRendererRef.current
+        if (!renderer) throw new Error('The drawing renderer is not ready.')
+        return renderer.exportProjectTextures()
+      },
+      importProjectTextures(textures) {
+        const renderer = drawingRendererRef.current
+        if (!renderer) throw new Error('The drawing renderer is not ready.')
+        renderer.importProjectTextures(textures)
       },
     }), [])
 

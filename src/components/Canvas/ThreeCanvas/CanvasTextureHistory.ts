@@ -153,6 +153,42 @@ export class CanvasTextureHistory {
     }
   }
 
+  replaceCurrentTargets(
+    populateTargets: (targets: readonly THREE.WebGLRenderTarget[]) => number,
+  ) {
+    if (this.activeStrokeId !== null) {
+      throw new Error('Cannot load a project while a stroke is active.')
+    }
+
+    const targets = createRenderTargetSet()
+    let importedStrokeId = 0
+    try {
+      importedStrokeId = populateTargets(targets)
+      if (
+        !Number.isInteger(importedStrokeId)
+        || importedStrokeId < 0
+        || importedStrokeId > 0xFFFFF
+      ) {
+        throw new Error('The imported canvas stroke ID is invalid.')
+      }
+    } catch (error) {
+      disposeRenderTargetSet(targets)
+      throw error
+    }
+
+    for (const snapshot of this.snapshots) {
+      if (snapshot) disposeRenderTargetSet(snapshot.targets)
+    }
+    this.snapshots.fill(null)
+    this.snapshots[importedStrokeId % HISTORY_SLOT_COUNT] = {
+      strokeId: importedStrokeId,
+      targets,
+    }
+    this.currentStrokeId = importedStrokeId
+    this.maxStrokeId = importedStrokeId
+    this.activeStrokeHasDrawing = false
+  }
+
   dispose() {
     for (const snapshot of this.snapshots) {
       if (snapshot) disposeRenderTargetSet(snapshot.targets)

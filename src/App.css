@@ -161,12 +161,6 @@
     gap: 4px;
   }
 
-  .color-wheel-wrap {
-    width: min(100%, 140px);
-    margin-top: 7px;
-    margin-bottom: 7px;
-  }
-
   .palette-section {
     margin-top: 3px;
     padding-top: 8px;
@@ -183,10 +177,6 @@
 }
 
 @media (max-height: 700px) and (min-width: 761px) {
-  .color-wheel-wrap {
-    width: min(100%, 90px);
-  }
-
   .palette-grid {
     grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 3px;
@@ -198,10 +188,6 @@
 }
 
 @media (max-height: 660px) and (min-width: 761px) {
-  .color-wheel-wrap {
-    width: min(100%, 64px);
-  }
-
   .color-heading {
     margin-bottom: 8px;
   }

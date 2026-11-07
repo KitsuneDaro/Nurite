@@ -80,18 +80,6 @@
   }
 }
 
-@media (max-width: 1050px) {
-  .color-wheel-wrap {
-    width: min(100%, 185px);
-  }
-}
-
-@media (max-width: 760px) {
-  .color-wheel-wrap {
-    width: min(100%, 185px);
-  }
-}
-
 @media (max-width: 520px) {
   .color-section {
     grid-row: span 2;
@@ -102,7 +90,7 @@
   }
 
   .color-wheel-wrap {
-    width: min(100%, 180px);
+    width: min(100%, 205px);
     margin: 0 auto 10px;
   }
 

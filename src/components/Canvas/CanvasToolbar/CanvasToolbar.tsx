@@ -1,4 +1,4 @@
-import { Bug, Download, Minus, Plus, Layers } from 'lucide-react'
+import { Bug, Minus, Plus, Layers } from 'lucide-react'
 import { TEXTURE_DEBUG_GROUPS, type TextureDebugField } from '../ThreeCanvas/TextureDebugFields'
 import './CanvasToolbar.css'
 
@@ -9,9 +9,6 @@ type CanvasToolbarProps = {
   onDebugModeChange: (enabled: boolean) => void
   debugField: TextureDebugField
   onDebugFieldChange: (field: TextureDebugField) => void
-  onExportTextures: () => void
-  exportingTextures: boolean
-  textureExportStatus: string | null
 }
 
 const MIN_ZOOM = 0.1
@@ -25,9 +22,6 @@ export function CanvasToolbar({
   onDebugModeChange,
   debugField,
   onDebugFieldChange,
-  onExportTextures,
-  exportingTextures,
-  textureExportStatus,
 }: CanvasToolbarProps) {
   return (
     <div className={`canvas-toolbar${debugMode ? ' debug-mode' : ''}`}>
@@ -47,15 +41,6 @@ export function CanvasToolbar({
         >
           <Bug size={14} />
           <span>デバッグ</span>
-        </button>
-        <button
-          className="texture-export-button"
-          aria-label="テクスチャを一括エクスポート"
-          disabled={exportingTextures}
-          onClick={onExportTextures}
-        >
-          <Download size={14} />
-          <span>{exportingTextures ? '出力中' : 'テクスチャZIP'}</span>
         </button>
         <div className="canvas-zoom">
           <button
@@ -96,9 +81,6 @@ export function CanvasToolbar({
             </div>
           ))}
         </div>
-      )}
-      {textureExportStatus && (
-        <span className="texture-export-status" role="status">{textureExportStatus}</span>
       )}
     </div>
   )

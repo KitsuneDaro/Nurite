@@ -48,8 +48,12 @@ export class CanvasTextureCopy {
   }
 
   copy(source: THREE.WebGLRenderTarget, destination: THREE.WebGLRenderTarget) {
+    this.copyTexture(source.texture, destination)
+  }
+
+  copyTexture(source: THREE.Texture, destination: THREE.WebGLRenderTarget) {
     this.material.uniforms.uMergeOverride.value = 0
-    this.material.uniforms.uSource.value = source.texture
+    this.material.uniforms.uSource.value = source
     this.renderer.setRenderTarget(destination)
     this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
     this.renderer.setScissorTest(false)

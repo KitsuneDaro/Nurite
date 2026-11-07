@@ -30,6 +30,11 @@
 
 @media (max-width: 520px) {
   .direction-toggle {
-    margin-bottom: 12px;
+    align-self: start;
+    height: 34px;
+    min-height: 34px;
+    padding: 0 7px;
+    gap: 6px;
+    font-size: 10px;
   }
 }

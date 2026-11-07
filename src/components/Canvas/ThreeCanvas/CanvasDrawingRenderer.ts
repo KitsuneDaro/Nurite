@@ -9,7 +9,6 @@ import {
   brushVertexShader,
   squareBrushStrokeCapFragmentShader,
 } from './CanvasDrawingShader'
-import { exportTextureTargets } from './CanvasTextureExport'
 import { exportCanvasImage } from './CanvasImageExport'
 import { CANVAS_SIZE, MAX_STROKE_SEGMENTS } from './CanvasConstants'
 import {
@@ -24,6 +23,7 @@ import { CanvasDisplay } from './rendering/CanvasDisplay'
 import type { DisplayTextureTargets } from './rendering/CanvasDisplay'
 import { unionDrawingBounds } from './rendering/DrawingBounds'
 import type { DrawingBounds } from './rendering/DrawingBounds'
+import type { CanvasProjectTextures } from './CanvasProjectFile'
 
 export { CANVAS_SIZE } from './CanvasConstants'
 export type { CanvasHistoryState } from './CanvasTextureHistory'
@@ -54,6 +54,17 @@ function createMetadataMatchUniforms(metadataTexture: THREE.Texture) {
     uResolution: { value: new THREE.Vector2(CANVAS_SIZE, CANVAS_SIZE) },
     uMetadataTexture: { value: metadataTexture },
   }
+}
+
+function getMaximumStrokeId(metadata: Uint8Array) {
+  let maximumStrokeId = 0
+  for (let offset = 0; offset < metadata.length; offset += 4) {
+    const strokeId = (metadata[offset] ?? 0)
+      + (metadata[offset + 1] ?? 0) * 0x100
+      + ((metadata[offset + 2] ?? 0) & 0x0F) * 0x10000
+    maximumStrokeId = Math.max(maximumStrokeId, strokeId)
+  }
+  return maximumStrokeId
 }
 
 export class CanvasDrawingRenderer {
@@ -315,16 +326,56 @@ export class CanvasDrawingRenderer {
     this.renderOutput()
   }
 
-  async exportTextures() {
-    if (this.disposed) throw new Error('Cannot export textures after the renderer is disposed.')
+  exportProjectTextures(): CanvasProjectTextures {
+    if (this.disposed) throw new Error('Cannot export project textures after the renderer is disposed.')
+    return {
+      metadata: this.readTargetPixels(this.metadataTarget),
+      color: this.readTargetPixels(this.colorTarget),
+      drawingStateA: this.readTargetPixels(this.drawingStateTargetA),
+      drawingStateB: this.readTargetPixels(this.drawingStateTargetB),
+      drawingStateC: this.readTargetPixels(this.drawingStateTargetC),
+    }
+  }
 
-    await exportTextureTargets(this.renderer, [
-      this.metadataTarget,
-      this.colorTarget,
-      this.drawingStateTargetA,
-      this.drawingStateTargetB,
-      this.drawingStateTargetC,
-    ])
+  importProjectTextures(textures: CanvasProjectTextures) {
+    if (this.disposed) throw new Error('Cannot load project textures after the renderer is disposed.')
+
+    const pixels = [
+      textures.metadata,
+      textures.color,
+      textures.drawingStateA,
+      textures.drawingStateB,
+      textures.drawingStateC,
+    ]
+    this.history.replaceCurrentTargets((targets) => {
+      for (let index = 0; index < targets.length; index += 1) {
+        const data = pixels[index]
+        const target = targets[index]
+        if (!data || !target) throw new Error('A project texture is missing.')
+        const texture = new THREE.DataTexture(
+          data,
+          CANVAS_SIZE,
+          CANVAS_SIZE,
+          THREE.RGBAFormat,
+          THREE.UnsignedByteType,
+        )
+        texture.minFilter = THREE.NearestFilter
+        texture.magFilter = THREE.NearestFilter
+        texture.generateMipmaps = false
+        texture.colorSpace = THREE.NoColorSpace
+        texture.needsUpdate = true
+        try {
+          this.textureCopy.copyTexture(texture, target)
+        } finally {
+          texture.dispose()
+        }
+      }
+      return getMaximumStrokeId(textures.metadata)
+    })
+    this.clearTarget(this.overrideEdgeDistanceTarget, '#000000', 0)
+    this.oilSurfaceMapsDirty = true
+    this.squareStrokeDistanceCaps = null
+    this.renderOutput()
   }
 
   async exportCanvas() {
@@ -661,6 +712,19 @@ export class CanvasDrawingRenderer {
 
   private copyTarget(source: THREE.WebGLRenderTarget, destination: THREE.WebGLRenderTarget) {
     this.textureCopy.copy(source, destination)
+  }
+
+  private readTargetPixels(target: THREE.WebGLRenderTarget) {
+    const pixels = new Uint8Array(CANVAS_SIZE * CANVAS_SIZE * 4)
+    this.renderer.readRenderTargetPixels(
+      target,
+      0,
+      0,
+      CANVAS_SIZE,
+      CANVAS_SIZE,
+      pixels,
+    )
+    return pixels
   }
 
   private clearTarget(target: THREE.WebGLRenderTarget, color: THREE.ColorRepresentation, alpha: number) {
