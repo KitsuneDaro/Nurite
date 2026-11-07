@@ -1,4 +1,3 @@
-import { SlidersHorizontal } from 'lucide-react'
 import { brushShapes, paintTypes } from '../../../constants/paint'
 import type { BrushShape, BrushType, ToolType } from '../../../types'
 import { ToolTypeSelector } from '../ToolTypeSelector/ToolTypeSelector'
@@ -44,8 +43,6 @@ export function ToolsPanel({
       <PanelHeading
         eyebrow="TOOLS"
         title="ペイントツール"
-        actionLabel="設定"
-        ActionIcon={SlidersHorizontal}
       />
       <ToolOptionGroup
         title="ブラシ形状"

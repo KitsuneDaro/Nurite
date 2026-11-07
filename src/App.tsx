@@ -34,7 +34,7 @@ function App() {
     return hexToHsl(colors[selectedIndex])
   })
   const [brushShape, setBrushShape] = useState<BrushShape>('round')
-  const [paintType, setPaintType] = useState<BrushType>('oil')
+  const [paintType, setPaintType] = useState<BrushType>('normal')
   const [followDirection, setFollowDirection] = useState(false)
   const [brushSize, setBrushSize] = useState(30)
   const [toolType, setToolType] = useState<ToolType>('brush')
@@ -286,10 +286,6 @@ function App() {
         onPanelSelect={setActiveMobilePanel}
       />
 
-      <footer className="app-footer">
-        <span>WebPainter <span className="footer-separator">/</span> 新しい作品</span>
-        <span>作品はこのデバイスに保存されます</span>
-      </footer>
     </div>
   )
 }

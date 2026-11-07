@@ -71,7 +71,7 @@ export function createCanvasProjectArchive(
 
 export function downloadCanvasProject(project: CanvasProject) {
   const archive = createCanvasProjectArchive(project.name, project.settings, project.textures)
-  downloadBlob(archive, `${sanitizeCanvasFileName(project.name)}.zip`)
+  downloadBlob(archive, `${sanitizeCanvasFileName(project.name)}.nrt`)
 }
 
 export async function readCanvasProject(file: File): Promise<CanvasProject> {
@@ -181,7 +181,7 @@ function validateManifest(value: unknown, fallbackName: string) {
 }
 
 function getProjectNameFromFile(fileName: string) {
-  const withoutExtension = fileName.replace(/\.zip$/i, '')
+  const withoutExtension = fileName.replace(/\.nrt$/i, '')
   return withoutExtension.slice(0, 120) || 'Untitled'
 }
 

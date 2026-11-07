@@ -36,9 +36,9 @@ export function TopBar({
 
   return (
     <header className="topbar">
-      <a className="brand" href="#" aria-label="WebPainter ホーム">
+      <a className="brand" href="#" aria-label="Nurite ホーム">
         <span className="brand-mark"><Sparkles size={18} /></span>
-        <span>web<span>painter</span></span>
+        <span>Nurite</span>
       </a>
       <div className="document-title">
         <span
@@ -86,7 +86,7 @@ export function TopBar({
           ref={projectFileInputRef}
           className="project-file-input"
           type="file"
-          accept=".zip,application/zip"
+          accept=".nrt"
           aria-label="読み込む編集ファイル"
           onChange={(event) => {
             const file = event.currentTarget.files?.[0]
