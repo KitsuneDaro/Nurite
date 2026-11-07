@@ -111,7 +111,6 @@ export class CanvasDrawingRenderer {
   private debugField = DEFAULT_TEXTURE_DEBUG_FIELD
   private squareStrokeDistanceCaps: SquareStrokeDistanceCaps | null = null
   private oilSurfaceMapsDirty = true
-  private overrideDistanceHasValues = false
   private disposed = false
 
   constructor(container: HTMLElement) {
@@ -497,15 +496,13 @@ export class CanvasDrawingRenderer {
     if (strokeId === null) return null
     this.clearTarget(this.overrideEdgeDistanceTarget, '#000000', 0)
     this.squareStrokeDistanceCaps = null
-    this.overrideDistanceHasValues = false
     return strokeId
   }
 
   endStroke(): CanvasHistoryState {
     this.renderSquareStrokeDistanceCaps()
-    if (this.overrideDistanceHasValues) this.mergeStrokeOverrideEdgeDistance()
+    this.renderOutput()
     this.squareStrokeDistanceCaps = null
-    this.overrideDistanceHasValues = false
     return this.history.endStroke()
   }
 
@@ -643,12 +640,12 @@ export class CanvasDrawingRenderer {
       this.renderSegmentPass(this.drawingStateTargetB, this.drawingStateMaterialB)
       this.renderSegmentPass(this.drawingStateTargetC, this.drawingStateMaterialC)
       this.renderSegmentPass(this.overrideEdgeDistanceTarget, this.overrideEdgeDistanceMaterial)
+      this.mergeStrokeOverrideEdgeDistance(bounds)
       this.renderSegmentPass(this.colorTarget, this.colorMaterial)
       processedSegmentCount += 1
     }
 
     if (processedSegmentCount > 0 && surfaceBounds) {
-      this.overrideDistanceHasValues = true
       this.oilSurfaceMapsDirty = true
       this.updateOilSurfaceMaps(surfaceBounds)
     }
@@ -715,13 +712,13 @@ export class CanvasDrawingRenderer {
       uniforms.uBrushSize.value = brushSize
       uniforms.uFollowDirection.value = followDirection
       uniforms.uStartCap.value = isStart ? 1 : 0
-      if (this.setSegmentUniforms(endpoint, endpoint, brushSize, direction)) {
-        uniforms.uOverridePass.value = 0
-        this.renderSegmentPass(this.drawingStateTargetC, this.squareStrokeCapMaterial)
-        uniforms.uOverridePass.value = 1
-        this.renderSegmentPass(this.overrideEdgeDistanceTarget, this.squareStrokeCapMaterial)
-        this.overrideDistanceHasValues = true
-      }
+      const bounds = this.setSegmentUniforms(endpoint, endpoint, brushSize, direction)
+      if (!bounds) return
+      uniforms.uOverridePass.value = 0
+      this.renderSegmentPass(this.drawingStateTargetC, this.squareStrokeCapMaterial)
+      uniforms.uOverridePass.value = 1
+      this.renderSegmentPass(this.overrideEdgeDistanceTarget, this.squareStrokeCapMaterial)
+      this.mergeStrokeOverrideEdgeDistance(bounds)
     }
 
     renderCap(
@@ -742,19 +739,26 @@ export class CanvasDrawingRenderer {
     this.renderer.autoClear = previousAutoClear
   }
 
-  private mergeStrokeOverrideEdgeDistance() {
+  private mergeStrokeOverrideEdgeDistance(bounds: DrawingBounds) {
     const uniforms = this.copyMaterial.uniforms
     uniforms.uSource.value = this.drawingStateTargetC.texture
     uniforms.uOverrideTexture.value = this.overrideEdgeDistanceTarget.texture
     uniforms.uMergeOverride.value = 1
-    this.renderer.setRenderTarget(this.mergedEdgeDistanceTarget)
     this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
-    this.renderer.setScissorTest(false)
+    this.renderer.setScissorTest(true)
+    this.renderer.setScissor(
+      bounds.left,
+      CANVAS_SIZE - bounds.bottom,
+      bounds.right - bounds.left,
+      bounds.bottom - bounds.top,
+    )
+    this.renderer.setRenderTarget(this.mergedEdgeDistanceTarget)
     this.renderer.render(this.copyScene, this.copyCamera)
     uniforms.uMergeOverride.value = 0
-    this.copyTarget(this.mergedEdgeDistanceTarget, this.drawingStateTargetC)
+    uniforms.uSource.value = this.mergedEdgeDistanceTarget.texture
+    this.renderer.setRenderTarget(this.drawingStateTargetC)
+    this.renderer.render(this.copyScene, this.copyCamera)
     this.oilSurfaceMapsDirty = true
-    this.renderOutput()
   }
 
   dispose() {
