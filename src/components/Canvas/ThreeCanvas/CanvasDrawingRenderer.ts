@@ -8,21 +8,22 @@ import {
   brushStrokeDistanceFragmentShader,
   brushVertexShader,
   squareBrushStrokeCapFragmentShader,
-  textureDebugFragmentShader,
-  textureDebugVertexShader,
 } from './CanvasDrawingShader'
-import { oilDepthFragmentShader, oilNormalFragmentShader } from './shaders/OilSurfaceShader'
 import { exportTextureTargets } from './CanvasTextureExport'
 import { exportCanvasImage } from './CanvasImageExport'
 import { CANVAS_SIZE, MAX_STROKE_SEGMENTS } from './CanvasConstants'
 import {
   DEFAULT_TEXTURE_DEBUG_FIELD,
-  getTextureDebugField,
   type TextureDebugField,
-  type TextureDebugSource,
 } from './TextureDebugFields'
 import { CanvasTextureHistory, createRenderTarget } from './CanvasTextureHistory'
 import type { CanvasHistoryState } from './CanvasTextureHistory'
+import { CanvasTextureCopy } from './rendering/CanvasTextureCopy'
+import { CanvasOilSurface } from './rendering/CanvasOilSurface'
+import { CanvasDisplay } from './rendering/CanvasDisplay'
+import type { DisplayTextureTargets } from './rendering/CanvasDisplay'
+import { unionDrawingBounds } from './rendering/DrawingBounds'
+import type { DrawingBounds } from './rendering/DrawingBounds'
 
 export { CANVAS_SIZE } from './CanvasConstants'
 export type { CanvasHistoryState } from './CanvasTextureHistory'
@@ -46,26 +47,6 @@ type SquareStrokeDistanceCaps = {
   endFollowDirection: number
 }
 
-type DrawingBounds = {
-  left: number
-  right: number
-  top: number
-  bottom: number
-}
-
-function unionDrawingBounds(
-  current: DrawingBounds | null,
-  next: DrawingBounds,
-): DrawingBounds {
-  if (!current) return next
-  return {
-    left: Math.min(current.left, next.left),
-    right: Math.max(current.right, next.right),
-    top: Math.min(current.top, next.top),
-    bottom: Math.max(current.bottom, next.bottom),
-  }
-}
-
 function createMetadataMatchUniforms(metadataTexture: THREE.Texture) {
   return {
     uStrokeId: { value: 0 },
@@ -79,16 +60,8 @@ export class CanvasDrawingRenderer {
   private readonly renderer: THREE.WebGLRenderer
   private readonly canvasExportTarget: THREE.WebGLRenderTarget
   private readonly history: CanvasTextureHistory
-  private readonly copyMaterial: THREE.ShaderMaterial
-  private readonly copyScene: THREE.Scene
-  private readonly copyCamera: THREE.OrthographicCamera
-  private readonly oilDepthTarget: THREE.WebGLRenderTarget
-  private readonly oilNormalTarget: THREE.WebGLRenderTarget
-  private readonly oilDepthMaterial: THREE.ShaderMaterial
-  private readonly oilNormalMaterial: THREE.ShaderMaterial
-  private readonly oilSurfaceScene: THREE.Scene
-  private readonly oilSurfaceGeometry: THREE.PlaneGeometry
-  private readonly oilSurfaceMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
+  private readonly textureCopy: CanvasTextureCopy
+  private readonly oilSurface: CanvasOilSurface
   private readonly overrideEdgeDistanceTarget: THREE.WebGLRenderTarget
   private readonly mergedEdgeDistanceTarget: THREE.WebGLRenderTarget
   private readonly metadataMaterial: THREE.ShaderMaterial
@@ -101,12 +74,7 @@ export class CanvasDrawingRenderer {
   private readonly brushMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
   private readonly brushScene: THREE.Scene
   private readonly brushCamera: THREE.OrthographicCamera
-  private readonly displayScene: THREE.Scene
-  private readonly displayCamera: THREE.OrthographicCamera
-  private readonly displayMaterial: THREE.MeshStandardMaterial
-  private readonly debugScene: THREE.Scene
-  private readonly debugCamera: THREE.OrthographicCamera
-  private readonly debugMaterial: THREE.ShaderMaterial
+  private readonly canvasDisplay: CanvasDisplay
   private debugMode = false
   private debugField = DEFAULT_TEXTURE_DEBUG_FIELD
   private squareStrokeDistanceCaps: SquareStrokeDistanceCaps | null = null
@@ -136,79 +104,13 @@ export class CanvasDrawingRenderer {
     this.history = new CanvasTextureHistory((source, destination) => {
       this.copyTarget(source, destination)
     })
+    this.textureCopy = new CanvasTextureCopy(this.renderer)
+    this.oilSurface = new CanvasOilSurface(this.renderer)
     this.canvasExportTarget = createRenderTarget()
     this.canvasExportTarget.texture.colorSpace = THREE.SRGBColorSpace
 
-    this.copyMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uSource: { value: this.colorTarget.texture },
-        uOverrideTexture: { value: this.drawingStateTargetC.texture },
-        uMergeOverride: { value: 0 },
-      },
-      vertexShader: `
-        varying vec2 vUv;
-        void main() {
-          vUv = uv;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        varying vec2 vUv;
-        uniform sampler2D uSource;
-        uniform sampler2D uOverrideTexture;
-        uniform float uMergeOverride;
-        void main() {
-          vec4 source = texture2D(uSource, vUv);
-          if (uMergeOverride > 0.5) {
-            vec2 overrideDistance = texture2D(uOverrideTexture, vUv).rg;
-            if (overrideDistance.g > 0.5) source.g = overrideDistance.r;
-          }
-          gl_FragColor = source;
-        }
-      `,
-      depthTest: false,
-      depthWrite: false,
-      toneMapped: false,
-    })
-    this.copyScene = new THREE.Scene()
-    this.copyScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.copyMaterial))
-    this.copyCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10)
-    this.copyCamera.position.z = 2
-
     this.overrideEdgeDistanceTarget = createRenderTarget()
     this.mergedEdgeDistanceTarget = createRenderTarget()
-    this.oilDepthTarget = createRenderTarget(THREE.HalfFloatType)
-    this.oilNormalTarget = createRenderTarget(THREE.HalfFloatType)
-    this.oilDepthMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uDrawingStateA: { value: this.drawingStateTargetA.texture },
-        uDrawingStateC: { value: this.drawingStateTargetC.texture },
-        uDepthScale: { value: 0.12 },
-      },
-      vertexShader: textureDebugVertexShader,
-      fragmentShader: oilDepthFragmentShader,
-      depthTest: false,
-      depthWrite: false,
-      toneMapped: false,
-    })
-    this.oilNormalMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uDepthTexture: { value: this.oilDepthTarget.texture },
-        uTexelSize: {
-          value: new THREE.Vector2(1 / CANVAS_SIZE, 1 / CANVAS_SIZE),
-        },
-        uNormalStrength: { value: 3 },
-      },
-      vertexShader: textureDebugVertexShader,
-      fragmentShader: oilNormalFragmentShader,
-      depthTest: false,
-      depthWrite: false,
-      toneMapped: false,
-    })
-    this.oilSurfaceGeometry = new THREE.PlaneGeometry(2, 2)
-    this.oilSurfaceScene = new THREE.Scene()
-    this.oilSurfaceMesh = new THREE.Mesh(this.oilSurfaceGeometry, this.oilDepthMaterial)
-    this.oilSurfaceScene.add(this.oilSurfaceMesh)
 
     this.metadataMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -356,58 +258,13 @@ export class CanvasDrawingRenderer {
     this.brushCamera = new THREE.OrthographicCamera(0, CANVAS_SIZE, 0, CANVAS_SIZE, 0.1, 10)
     this.brushCamera.position.z = 2
 
-    const displayGeometry = new THREE.PlaneGeometry(CANVAS_SIZE, CANVAS_SIZE)
-    this.displayMaterial = new THREE.MeshStandardMaterial({
-      map: this.colorTarget.texture,
-      normalMap: this.oilNormalTarget.texture,
-      roughnessMap: this.oilDepthTarget.texture,
-      roughness: 1,
-      metalness: 0,
-      normalScale: new THREE.Vector2(0.8, 0.8),
-    })
-    this.displayScene = new THREE.Scene()
-    this.displayScene.background = new THREE.Color('#FFFFFF')
-    this.displayScene.add(new THREE.Mesh(displayGeometry, this.displayMaterial))
-    this.displayScene.add(new THREE.AmbientLight(0xFFFFFF, 0.7))
-    const oilLight = new THREE.DirectionalLight(0xFFFFFF, 2.2)
-    oilLight.position.set(-360, 460, 720)
-    this.displayScene.add(oilLight)
-    this.displayCamera = new THREE.OrthographicCamera(
-      -CANVAS_SIZE / 2,
-      CANVAS_SIZE / 2,
-      CANVAS_SIZE / 2,
-      -CANVAS_SIZE / 2,
-      0.1,
-      10,
+    this.canvasDisplay = new CanvasDisplay(
+      this.colorTarget.texture,
+      this.oilSurface.normalTarget.texture,
+      this.oilSurface.depthTarget.texture,
+      this.metadataTarget.texture,
+      this.debugField,
     )
-    this.displayCamera.position.z = 2
-
-    this.debugScene = new THREE.Scene()
-    this.debugScene.background = new THREE.Color('#10141c')
-    this.debugCamera = new THREE.OrthographicCamera(
-      -CANVAS_SIZE / 2,
-      CANVAS_SIZE / 2,
-      CANVAS_SIZE / 2,
-      -CANVAS_SIZE / 2,
-      0.1,
-      10,
-    )
-    this.debugCamera.position.z = 2
-    this.debugMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        uTexture: { value: this.metadataTarget.texture },
-        uDebugField: { value: getTextureDebugField(this.debugField).mode },
-      },
-      vertexShader: textureDebugVertexShader,
-      fragmentShader: textureDebugFragmentShader,
-      depthTest: false,
-      depthWrite: false,
-      toneMapped: false,
-    })
-    this.debugScene.add(new THREE.Mesh(
-      new THREE.PlaneGeometry(CANVAS_SIZE, CANVAS_SIZE),
-      this.debugMaterial,
-    ))
 
     this.clearTarget(this.metadataTarget, '#000000', 0)
     this.clearTarget(this.colorTarget, '#FFFFFF', 1)
@@ -443,19 +300,12 @@ export class CanvasDrawingRenderer {
 
   setDebugField(field: TextureDebugField) {
     if (this.disposed || this.debugField === field) return
-    const definition = getTextureDebugField(field)
-    const targets: Record<TextureDebugSource, THREE.WebGLRenderTarget> = {
-      metadata: this.metadataTarget,
-      color: this.colorTarget,
-      'drawing-state-a': this.drawingStateTargetA,
-      'drawing-state-b': this.drawingStateTargetB,
-      'drawing-state-c': this.drawingStateTargetC,
-      'oil-depth': this.oilDepthTarget,
-      'oil-normal': this.oilNormalTarget,
-    }
     this.debugField = field
-    this.debugMaterial.uniforms.uTexture.value = targets[definition.source]!.texture
-    this.debugMaterial.uniforms.uDebugField.value = definition.mode
+    this.canvasDisplay.updateTextures(
+      this.colorTarget.texture,
+      this.getDisplayTextureTargets(),
+      field,
+    )
     if (this.debugMode) this.renderOutput()
   }
 
@@ -481,11 +331,12 @@ export class CanvasDrawingRenderer {
     if (this.disposed) throw new Error('Cannot export the canvas after the renderer is disposed.')
 
     this.updateDisplayedTextures()
+    const output = this.canvasDisplay.getOutput(this.debugMode)
     await exportCanvasImage(
       this.renderer,
       this.canvasExportTarget,
-      this.debugMode ? this.debugScene : this.displayScene,
-      this.debugMode ? this.debugCamera : this.displayCamera,
+      output.scene,
+      output.camera,
       () => this.renderOutput(),
     )
   }
@@ -775,24 +626,13 @@ export class CanvasDrawingRenderer {
   }
 
   private mergeStrokeOverrideEdgeDistance(bounds: DrawingBounds) {
-    const uniforms = this.copyMaterial.uniforms
-    uniforms.uSource.value = this.drawingStateTargetC.texture
-    uniforms.uOverrideTexture.value = this.overrideEdgeDistanceTarget.texture
-    uniforms.uMergeOverride.value = 1
-    this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
-    this.renderer.setScissorTest(true)
-    this.renderer.setScissor(
-      bounds.left,
-      CANVAS_SIZE - bounds.bottom,
-      bounds.right - bounds.left,
-      bounds.bottom - bounds.top,
+    this.textureCopy.mergeOverrideDistance(
+      this.drawingStateTargetC,
+      this.overrideEdgeDistanceTarget,
+      this.mergedEdgeDistanceTarget,
+      this.drawingStateTargetC,
+      bounds,
     )
-    this.renderer.setRenderTarget(this.mergedEdgeDistanceTarget)
-    this.renderer.render(this.copyScene, this.copyCamera)
-    uniforms.uMergeOverride.value = 0
-    uniforms.uSource.value = this.mergedEdgeDistanceTarget.texture
-    this.renderer.setRenderTarget(this.drawingStateTargetC)
-    this.renderer.render(this.copyScene, this.copyCamera)
     this.oilSurfaceMapsDirty = true
   }
 
@@ -802,55 +642,25 @@ export class CanvasDrawingRenderer {
     this.history.dispose()
     this.brushScene.remove(this.brushMesh)
     this.brushMesh.geometry.dispose()
-    this.copyScene.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return
-      object.geometry.dispose()
-    })
-    this.copyMaterial.dispose()
+    this.textureCopy.dispose()
+    this.oilSurface.dispose()
+    this.canvasDisplay.dispose()
     this.overrideEdgeDistanceMaterial.dispose()
     this.overrideEdgeDistanceTarget.dispose()
     this.mergedEdgeDistanceTarget.dispose()
-    this.oilDepthMaterial.dispose()
-    this.oilNormalMaterial.dispose()
-    this.oilDepthTarget.dispose()
-    this.oilNormalTarget.dispose()
-    this.oilSurfaceGeometry.dispose()
     this.metadataMaterial.dispose()
     this.colorMaterial.dispose()
     this.drawingStateMaterialA.dispose()
     this.drawingStateMaterialB.dispose()
     this.drawingStateMaterialC.dispose()
     this.squareStrokeCapMaterial.dispose()
-    this.displayScene.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return
-      object.geometry.dispose()
-      if (Array.isArray(object.material)) {
-        object.material.forEach((material) => material.dispose())
-      } else {
-        object.material.dispose()
-      }
-    })
     this.canvasExportTarget.dispose()
-    this.debugScene.traverse((object) => {
-      if (!(object instanceof THREE.Mesh)) return
-      object.geometry.dispose()
-      if (Array.isArray(object.material)) {
-        object.material.forEach((material) => material.dispose())
-      } else {
-        object.material.dispose()
-      }
-    })
     this.renderer.dispose()
     this.renderer.domElement.remove()
   }
 
   private copyTarget(source: THREE.WebGLRenderTarget, destination: THREE.WebGLRenderTarget) {
-    this.copyMaterial.uniforms.uMergeOverride.value = 0
-    this.copyMaterial.uniforms.uSource.value = source.texture
-    this.renderer.setRenderTarget(destination)
-    this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
-    this.renderer.setScissorTest(false)
-    this.renderer.render(this.copyScene, this.copyCamera)
+    this.textureCopy.copy(source, destination)
   }
 
   private clearTarget(target: THREE.WebGLRenderTarget, color: THREE.ColorRepresentation, alpha: number) {
@@ -866,14 +676,11 @@ export class CanvasDrawingRenderer {
     this.renderer.setRenderTarget(null)
     this.renderer.setScissorTest(false)
     this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
-    this.renderer.render(
-      this.debugMode ? this.debugScene : this.displayScene,
-      this.debugMode ? this.debugCamera : this.displayCamera,
-    )
+    const output = this.canvasDisplay.getOutput(this.debugMode)
+    this.renderer.render(output.scene, output.camera)
   }
 
   private updateDisplayedTextures() {
-    this.displayMaterial.map = this.colorTarget.texture
     for (const material of [
       this.colorMaterial,
       this.drawingStateMaterialA,
@@ -883,54 +690,27 @@ export class CanvasDrawingRenderer {
     ]) {
       material.uniforms.uMetadataTexture.value = this.metadataTarget.texture
     }
-    const targets: Record<TextureDebugSource, THREE.WebGLRenderTarget> = {
+    this.canvasDisplay.updateTextures(
+      this.colorTarget.texture,
+      this.getDisplayTextureTargets(),
+      this.debugField,
+    )
+  }
+
+  private getDisplayTextureTargets(): DisplayTextureTargets {
+    return {
       metadata: this.metadataTarget,
       color: this.colorTarget,
       'drawing-state-a': this.drawingStateTargetA,
       'drawing-state-b': this.drawingStateTargetB,
       'drawing-state-c': this.drawingStateTargetC,
-      'oil-depth': this.oilDepthTarget,
-      'oil-normal': this.oilNormalTarget,
+      'oil-depth': this.oilSurface.depthTarget,
+      'oil-normal': this.oilSurface.normalTarget,
     }
-    this.debugMaterial.uniforms.uTexture.value =
-      targets[getTextureDebugField(this.debugField).source].texture
   }
 
   private updateOilSurfaceMaps(bounds?: DrawingBounds) {
-    this.oilDepthMaterial.uniforms.uDrawingStateA.value = this.drawingStateTargetA.texture
-    this.oilDepthMaterial.uniforms.uDrawingStateC.value = this.drawingStateTargetC.texture
-
-    this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
-    this.renderer.setScissorTest(bounds !== undefined)
-    if (bounds) {
-      this.renderer.setScissor(
-        bounds.left,
-        CANVAS_SIZE - bounds.bottom,
-        bounds.right - bounds.left,
-        bounds.bottom - bounds.top,
-      )
-    }
-    this.oilSurfaceMesh.material = this.oilDepthMaterial
-    this.renderer.setRenderTarget(this.oilDepthTarget)
-    this.renderer.render(this.oilSurfaceScene, this.copyCamera)
-
-    if (bounds) {
-      const padding = 1
-      const left = Math.max(0, bounds.left - padding)
-      const right = Math.min(CANVAS_SIZE, bounds.right + padding)
-      const top = Math.max(0, bounds.top - padding)
-      const bottom = Math.min(CANVAS_SIZE, bounds.bottom + padding)
-      this.renderer.setScissor(
-        left,
-        CANVAS_SIZE - bottom,
-        right - left,
-        bottom - top,
-      )
-    }
-    this.oilSurfaceMesh.material = this.oilNormalMaterial
-    this.renderer.setRenderTarget(this.oilNormalTarget)
-    this.renderer.render(this.oilSurfaceScene, this.copyCamera)
-    this.renderer.setScissorTest(false)
+    this.oilSurface.update(this.drawingStateTargetA, this.drawingStateTargetC, bounds)
     this.oilSurfaceMapsDirty = false
   }
 

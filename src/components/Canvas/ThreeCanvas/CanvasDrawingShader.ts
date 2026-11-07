@@ -3,7 +3,9 @@ export {
   brushColorFragmentShader,
   brushStateAFragmentShader,
   brushStateBFragmentShader,
+} from './shaders/BrushOutputShader'
+export {
   brushStrokeDistanceFragmentShader,
   squareBrushStrokeCapFragmentShader,
-} from './shaders/BrushOutputShader'
+} from './shaders/BrushDistanceShader'
 export { textureDebugFragmentShader, textureDebugVertexShader } from './shaders/TextureDebugShader'
