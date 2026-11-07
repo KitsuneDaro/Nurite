@@ -604,12 +604,14 @@ export class CanvasDrawingRenderer {
         this.metadataMaterial.uniforms.uEnd.value,
       )
       this.drawingStateMaterialB.uniforms.uVelocity.value.set(
-        segment.end.x - segment.start.x,
-        segment.end.y - segment.start.y,
+        segment.velocity?.x ?? segment.end.x - segment.start.x,
+        segment.velocity?.y ?? segment.end.y - segment.start.y,
       )
       this.drawingStateMaterialB.uniforms.uAcceleration.value.set(
-        segment.end.x - segment.start.x - (segment.previousDirection?.x ?? 0),
-        segment.end.y - segment.start.y - (segment.previousDirection?.y ?? 0),
+        segment.acceleration?.x
+          ?? segment.end.x - segment.start.x - (segment.previousDirection?.x ?? 0),
+        segment.acceleration?.y
+          ?? segment.end.y - segment.start.y - (segment.previousDirection?.y ?? 0),
       )
       this.drawingStateMaterialC.uniforms.uStart.value.copy(
         this.metadataMaterial.uniforms.uStart.value,

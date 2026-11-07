@@ -41,6 +41,8 @@ export function useCanvasStroke({
   const lastDrawnPointRef = useRef<DrawingPoint | null>(null)
   const lastInputPointRef = useRef<DrawingPoint | null>(null)
   const distanceSinceDirectionSampleRef = useRef(0)
+  const previousInputVelocityRef = useRef<DrawingPoint>({ x: 0, y: 0 })
+  const previousInputAccelerationRef = useRef<DrawingPoint>({ x: 0, y: 0 })
   const previousDirectionRef = useRef<DrawingPoint | null>(null)
   const nextSegmentIdRef = useRef(0)
   const activeStrokeIdRef = useRef(0)
@@ -75,70 +77,106 @@ export function useCanvasStroke({
     const style = drawingStyleRef.current
     const resampleDirection = style.followDirection
       && (style.shape === 'flat' || style.shape === 'square')
-    const pointsToDraw: DrawingPoint[] = []
+    const pointsToDraw: Array<{
+      point: DrawingPoint
+      velocity: DrawingPoint
+      acceleration: DrawingPoint
+    }> = []
     let lastInputPoint = lastInputPointRef.current
     let distanceSinceSample = distanceSinceDirectionSampleRef.current
+    let previousInputVelocity = previousInputVelocityRef.current
+    let previousInputAcceleration = previousInputAccelerationRef.current
 
     for (const point of pending) {
       if (!lastInputPoint) {
-        pointsToDraw.push(point)
+        previousInputAcceleration = { x: 0, y: 0 }
+        pointsToDraw.push({
+          point,
+          velocity: { x: 0, y: 0 },
+          acceleration: previousInputAcceleration,
+        })
         lastInputPoint = point
         continue
       }
+
+      const velocity = {
+        x: point.x - lastInputPoint.x,
+        y: point.y - lastInputPoint.y,
+      }
+      const acceleration = {
+        x: velocity.x - previousInputVelocity.x,
+        y: velocity.y - previousInputVelocity.y,
+      }
+      previousInputAcceleration = acceleration
 
       if (!resampleDirection) {
-        pointsToDraw.push(point)
+        pointsToDraw.push({ point, velocity, acceleration })
         lastInputPoint = point
         distanceSinceSample = 0
+        previousInputVelocity = velocity
         continue
       }
 
-      const deltaX = point.x - lastInputPoint.x
-      const deltaY = point.y - lastInputPoint.y
-      const segmentLength = Math.hypot(deltaX, deltaY)
+      const segmentLength = Math.hypot(velocity.x, velocity.y)
       if (segmentLength > 0) {
         let distanceToSample = DIRECTION_SAMPLE_INTERVAL - distanceSinceSample
         while (distanceToSample <= segmentLength) {
           const ratio = distanceToSample / segmentLength
           pointsToDraw.push({
-            x: lastInputPoint.x + deltaX * ratio,
-            y: lastInputPoint.y + deltaY * ratio,
+            point: {
+              x: lastInputPoint.x + velocity.x * ratio,
+              y: lastInputPoint.y + velocity.y * ratio,
+            },
+            velocity,
+            acceleration,
           })
           distanceToSample += DIRECTION_SAMPLE_INTERVAL
         }
         distanceSinceSample = (distanceSinceSample + segmentLength) % DIRECTION_SAMPLE_INTERVAL
       }
       lastInputPoint = point
+      previousInputVelocity = velocity
     }
 
+    const latestDrawnPoint = pointsToDraw[pointsToDraw.length - 1]?.point
+      ?? lastDrawnPointRef.current
     if (
       includeLatestPoint
       && lastInputPoint
       && (
-        pointsToDraw.length === 0
-        || pointsToDraw[pointsToDraw.length - 1]!.x !== lastInputPoint.x
-        || pointsToDraw[pointsToDraw.length - 1]!.y !== lastInputPoint.y
+        !latestDrawnPoint
+        || latestDrawnPoint.x !== lastInputPoint.x
+        || latestDrawnPoint.y !== lastInputPoint.y
       )
     ) {
-      pointsToDraw.push(lastInputPoint)
+      pointsToDraw.push({
+        point: lastInputPoint,
+        velocity: previousInputVelocity,
+        acceleration: previousInputAcceleration,
+      })
       distanceSinceSample = 0
     }
 
     pendingPointsRef.current = []
     lastInputPointRef.current = lastInputPoint
     distanceSinceDirectionSampleRef.current = distanceSinceSample
+    previousInputVelocityRef.current = previousInputVelocity
+    previousInputAccelerationRef.current = previousInputAcceleration
     if (pointsToDraw.length === 0) return
 
     const segments: DrawingSegment[] = []
     let previousPoint = lastDrawnPointRef.current
     let previousDirection = previousDirectionRef.current
 
-    for (const point of pointsToDraw) {
+    for (const sample of pointsToDraw) {
+      const point = sample.point
       if (previousPoint) {
         segments.push({
           start: previousPoint,
           end: point,
           previousDirection,
+          velocity: sample.velocity,
+          acceleration: sample.acceleration,
         })
         const direction = {
           x: point.x - previousPoint.x,
@@ -152,6 +190,8 @@ export function useCanvasStroke({
           start: point,
           end: point,
           previousDirection: null,
+          velocity: sample.velocity,
+          acceleration: sample.acceleration,
         })
       }
       previousPoint = point
@@ -164,13 +204,15 @@ export function useCanvasStroke({
       nextSegmentIdRef.current,
     ) ?? 0
     nextSegmentIdRef.current += processedSegmentCount
-    lastDrawnPointRef.current = pointsToDraw[pointsToDraw.length - 1] ?? previousPoint
+    lastDrawnPointRef.current = pointsToDraw[pointsToDraw.length - 1]?.point ?? previousPoint
     if (nextSegmentIdRef.current >= MAX_STROKE_SEGMENTS) {
       onHistoryChange(drawingRef.current?.endStroke() ?? { canUndo: false, canRedo: false })
       activePointerRef.current = null
       lastDrawnPointRef.current = null
       lastInputPointRef.current = null
       distanceSinceDirectionSampleRef.current = 0
+      previousInputVelocityRef.current = { x: 0, y: 0 }
+      previousInputAccelerationRef.current = { x: 0, y: 0 }
       previousDirectionRef.current = null
       return
     }
@@ -222,6 +264,8 @@ export function useCanvasStroke({
     lastDrawnPointRef.current = null
     lastInputPointRef.current = null
     distanceSinceDirectionSampleRef.current = 0
+    previousInputVelocityRef.current = { x: 0, y: 0 }
+    previousInputAccelerationRef.current = { x: 0, y: 0 }
     previousDirectionRef.current = null
     activeStrokeIdRef.current = strokeId
     nextSegmentIdRef.current = 0
@@ -247,6 +291,8 @@ export function useCanvasStroke({
     lastDrawnPointRef.current = null
     lastInputPointRef.current = null
     distanceSinceDirectionSampleRef.current = 0
+    previousInputVelocityRef.current = { x: 0, y: 0 }
+    previousInputAccelerationRef.current = { x: 0, y: 0 }
     previousDirectionRef.current = null
     onHistoryChange(drawingRef.current?.endStroke() ?? { canUndo: false, canRedo: false })
   }, [drawingRef, flushPendingPoints, onHistoryChange])

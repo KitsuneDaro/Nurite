@@ -12,6 +12,8 @@ export type DrawingSegment = {
   start: DrawingPoint
   end: DrawingPoint
   previousDirection: DrawingPoint | null
+  velocity?: DrawingPoint
+  acceleration?: DrawingPoint
 }
 
 export type BrushStrokeStyle = {
