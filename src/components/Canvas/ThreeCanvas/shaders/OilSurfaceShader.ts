@@ -4,8 +4,8 @@ export const oilDepthFragmentShader = `
   uniform sampler2D uDrawingStateC;
   uniform float uDepthScale;
 
-  const float OIL_RIDGE_WAVELENGTH_PX = 20.0;
-  const float OIL_MAX_DEPTH_PX = 8.0;
+  const float OIL_RIDGE_WAVELENGTH_PX = 7.5;
+  const float OIL_MAX_DEPTH_PX = 2.0;
   const float PI = 3.14159265359;
 
   void main() {
