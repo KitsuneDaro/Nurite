@@ -11,6 +11,8 @@ import type { CanvasDrawingHandle } from '../ThreeCanvas/ThreeCanvas'
 import type { CanvasHistoryState } from '../ThreeCanvas/CanvasDrawingRenderer'
 import { CANVAS_SIZE, MAX_STROKE_SEGMENTS } from '../ThreeCanvas/CanvasConstants'
 
+const DIRECTION_SAMPLE_INTERVAL = 2
+
 type CanvasStrokeOptions = {
   frameRef: RefObject<HTMLDivElement | null>
   drawingRef: RefObject<CanvasDrawingHandle | null>
@@ -37,6 +39,8 @@ export function useCanvasStroke({
   const activePointerRef = useRef<number | null>(null)
   const pendingPointsRef = useRef<DrawingPoint[]>([])
   const lastDrawnPointRef = useRef<DrawingPoint | null>(null)
+  const lastInputPointRef = useRef<DrawingPoint | null>(null)
+  const distanceSinceDirectionSampleRef = useRef(0)
   const previousDirectionRef = useRef<DrawingPoint | null>(null)
   const nextSegmentIdRef = useRef(0)
   const activeStrokeIdRef = useRef(0)
@@ -61,19 +65,75 @@ export function useCanvasStroke({
     }
   }, [brushShape, brushColor, brushSize, eraserEnabled, followDirection, paintType])
 
-  const flushPendingPoints = useCallback(() => {
+  const flushPendingPoints = useCallback((includeLatestPoint = false) => {
     if (drawingFrameRef.current !== null) {
       cancelAnimationFrame(drawingFrameRef.current)
       drawingFrameRef.current = null
     }
-    if (pendingPointsRef.current.length === 0) return
 
     const pending = pendingPointsRef.current
+    const style = drawingStyleRef.current
+    const resampleDirection = style.followDirection
+      && (style.shape === 'flat' || style.shape === 'square')
+    const pointsToDraw: DrawingPoint[] = []
+    let lastInputPoint = lastInputPointRef.current
+    let distanceSinceSample = distanceSinceDirectionSampleRef.current
+
+    for (const point of pending) {
+      if (!lastInputPoint) {
+        pointsToDraw.push(point)
+        lastInputPoint = point
+        continue
+      }
+
+      if (!resampleDirection) {
+        pointsToDraw.push(point)
+        lastInputPoint = point
+        distanceSinceSample = 0
+        continue
+      }
+
+      const deltaX = point.x - lastInputPoint.x
+      const deltaY = point.y - lastInputPoint.y
+      const segmentLength = Math.hypot(deltaX, deltaY)
+      if (segmentLength > 0) {
+        let distanceToSample = DIRECTION_SAMPLE_INTERVAL - distanceSinceSample
+        while (distanceToSample <= segmentLength) {
+          const ratio = distanceToSample / segmentLength
+          pointsToDraw.push({
+            x: lastInputPoint.x + deltaX * ratio,
+            y: lastInputPoint.y + deltaY * ratio,
+          })
+          distanceToSample += DIRECTION_SAMPLE_INTERVAL
+        }
+        distanceSinceSample = (distanceSinceSample + segmentLength) % DIRECTION_SAMPLE_INTERVAL
+      }
+      lastInputPoint = point
+    }
+
+    if (
+      includeLatestPoint
+      && lastInputPoint
+      && (
+        pointsToDraw.length === 0
+        || pointsToDraw[pointsToDraw.length - 1]!.x !== lastInputPoint.x
+        || pointsToDraw[pointsToDraw.length - 1]!.y !== lastInputPoint.y
+      )
+    ) {
+      pointsToDraw.push(lastInputPoint)
+      distanceSinceSample = 0
+    }
+
+    pendingPointsRef.current = []
+    lastInputPointRef.current = lastInputPoint
+    distanceSinceDirectionSampleRef.current = distanceSinceSample
+    if (pointsToDraw.length === 0) return
+
     const segments: DrawingSegment[] = []
     let previousPoint = lastDrawnPointRef.current
     let previousDirection = previousDirectionRef.current
 
-    for (const point of pending) {
+    for (const point of pointsToDraw) {
       if (previousPoint) {
         segments.push({
           start: previousPoint,
@@ -104,12 +164,13 @@ export function useCanvasStroke({
       nextSegmentIdRef.current,
     ) ?? 0
     nextSegmentIdRef.current += processedSegmentCount
-    pendingPointsRef.current = []
-    lastDrawnPointRef.current = pending[pending.length - 1] ?? null
+    lastDrawnPointRef.current = pointsToDraw[pointsToDraw.length - 1] ?? previousPoint
     if (nextSegmentIdRef.current >= MAX_STROKE_SEGMENTS) {
       onHistoryChange(drawingRef.current?.endStroke() ?? { canUndo: false, canRedo: false })
       activePointerRef.current = null
       lastDrawnPointRef.current = null
+      lastInputPointRef.current = null
+      distanceSinceDirectionSampleRef.current = 0
       previousDirectionRef.current = null
       return
     }
@@ -119,7 +180,7 @@ export function useCanvasStroke({
 
   const scheduleDrawingFrame = useCallback(() => {
     if (drawingFrameRef.current !== null) return
-    drawingFrameRef.current = requestAnimationFrame(flushPendingPoints)
+    drawingFrameRef.current = requestAnimationFrame(() => flushPendingPoints())
   }, [flushPendingPoints])
 
   useEffect(() => () => {
@@ -159,6 +220,8 @@ export function useCanvasStroke({
     if (strokeId === null || strokeId === undefined) return
     activePointerRef.current = pointerId
     lastDrawnPointRef.current = null
+    lastInputPointRef.current = null
+    distanceSinceDirectionSampleRef.current = 0
     previousDirectionRef.current = null
     activeStrokeIdRef.current = strokeId
     nextSegmentIdRef.current = 0
@@ -178,10 +241,12 @@ export function useCanvasStroke({
   const endStroke = useCallback((pointerId: number) => {
     if (activePointerRef.current !== pointerId) return
 
-    flushPendingPoints()
+    flushPendingPoints(true)
     if (activePointerRef.current !== pointerId) return
     activePointerRef.current = null
     lastDrawnPointRef.current = null
+    lastInputPointRef.current = null
+    distanceSinceDirectionSampleRef.current = 0
     previousDirectionRef.current = null
     onHistoryChange(drawingRef.current?.endStroke() ?? { canUndo: false, canRedo: false })
   }, [drawingRef, flushPendingPoints, onHistoryChange])

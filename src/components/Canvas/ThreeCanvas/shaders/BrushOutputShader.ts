@@ -125,10 +125,7 @@ const brushEdgeDistanceFunctions = `
   ) {
     float segmentLength = length(segment);
     vec2 tangent = segmentLength > 0.0 ? segment / segmentLength : vec2(1.0, 0.0);
-    vec2 brushTangent = followDirection > 0.5
-      ? getSquareTangent(clampDirectionTurn(previousDirection, tangent), tangent)
-      : tangent;
-    vec2 normal = vec2(-brushTangent.y, brushTangent.x);
+    vec2 normal = vec2(-tangent.y, tangent.x);
     float halfSize = brushSize * 0.5;
 
     if (shape == 0) {

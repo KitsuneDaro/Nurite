@@ -132,10 +132,7 @@ export const brushMetadataFragmentShader = `
     vec2 segment = uEnd - uStart;
     float segmentLength = length(segment);
     vec2 tangent = segmentLength > 0.0 ? segment / segmentLength : vec2(1.0, 0.0);
-    vec2 brushTangent = uFollowDirection > 0.5
-      ? getSquareTangent(clampDirectionTurn(uPreviousDirection, tangent), tangent)
-      : tangent;
-    vec2 normal = vec2(-brushTangent.y, brushTangent.x);
+    vec2 normal = vec2(-tangent.y, tangent.x);
     vec2 relativePoint = point - uStart;
     float halfSize = uBrushSize * 0.5;
     bool covered = false;
