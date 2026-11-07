@@ -378,6 +378,32 @@ export class CanvasDrawingRenderer {
     this.renderOutput()
   }
 
+  resetCanvas() {
+    if (this.disposed) throw new Error('Cannot reset the canvas after the renderer is disposed.')
+
+    this.history.replaceCurrentTargets((targets) => {
+      const [metadata, color, drawingStateA, drawingStateB, drawingStateC] = targets
+      if (!metadata || !color || !drawingStateA || !drawingStateB || !drawingStateC) {
+        throw new Error('The canvas texture targets are unavailable.')
+      }
+
+      this.clearTarget(metadata, '#000000', 0)
+      this.clearTarget(color, '#FFFFFF', 1)
+      this.clearTarget(drawingStateA, '#000000', 0)
+      this.clearTarget(
+        drawingStateB,
+        new THREE.Color().setRGB(128 / 255, 128 / 255, 128 / 255),
+        1,
+      )
+      this.clearTarget(drawingStateC, '#000000', 0)
+      return 0
+    })
+    this.clearTarget(this.overrideEdgeDistanceTarget, '#000000', 0)
+    this.oilSurfaceMapsDirty = true
+    this.squareStrokeDistanceCaps = null
+    this.renderOutput()
+  }
+
   async exportCanvas(filename: string) {
     if (this.disposed) throw new Error('Cannot export the canvas after the renderer is disposed.')
 

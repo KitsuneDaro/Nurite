@@ -31,6 +31,7 @@ export type CanvasDrawingHandle = {
   exportCanvas: (filename: string) => Promise<void>
   exportProjectTextures: () => CanvasProjectTextures
   importProjectTextures: (textures: CanvasProjectTextures) => void
+  resetCanvas: () => void
 }
 
 type ThreeCanvasProps = {
@@ -93,6 +94,11 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
         const renderer = drawingRendererRef.current
         if (!renderer) throw new Error('The drawing renderer is not ready.')
         renderer.importProjectTextures(textures)
+      },
+      resetCanvas() {
+        const renderer = drawingRendererRef.current
+        if (!renderer) throw new Error('The drawing renderer is not ready.')
+        renderer.resetCanvas()
       },
     }), [])
 

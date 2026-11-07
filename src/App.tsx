@@ -55,6 +55,7 @@ function App() {
   const addPaletteColor = usePaletteStore((state) => state.addColor)
   const removeSelectedPaletteColor = usePaletteStore((state) => state.removeSelectedColor)
   const movePaletteColor = usePaletteStore((state) => state.moveColor)
+  const resetPalette = usePaletteStore((state) => state.reset)
   const updateCanvasHistory = useCallback((history: CanvasHistoryState, contentChanged: boolean) => {
     setCanvasHistory(history)
     if (contentChanged) setIsProjectDirty(true)
@@ -102,6 +103,36 @@ function App() {
   function updateToolType(nextToolType: ToolType) {
     setToolType(nextToolType)
     setIsProjectDirty(true)
+  }
+
+  function createNewCanvas() {
+    const drawing = drawingRef.current
+    if (!drawing) {
+      showProjectFileStatus('キャンバスの準備ができていません')
+      return
+    }
+
+    try {
+      drawing.resetCanvas()
+      setCanvasName(createDefaultCanvasName())
+      setBrushShape('round')
+      setPaintType('normal')
+      setFollowDirection(false)
+      setBrushSize(30)
+      setToolType('brush')
+      resetPalette()
+      setColor(hexToHsl(usePaletteStore.getState().colors[9]!))
+      setCanvasHistory(drawing.getHistoryState())
+      setCanvasZoom(1)
+      setDebugMode(false)
+      setDebugField(DEFAULT_TEXTURE_DEBUG_FIELD)
+      setActiveMobilePanel(null)
+      setIsProjectDirty(true)
+      showProjectFileStatus('新しいキャンバスを作成しました')
+    } catch (error) {
+      console.error('Failed to create a new canvas.', error)
+      showProjectFileStatus('新しいキャンバスを作成できませんでした')
+    }
   }
 
   async function saveProject() {
@@ -213,6 +244,7 @@ function App() {
   return (
     <div className="app-shell">
       <TopBar
+        onNewCanvas={createNewCanvas}
         onSaveProject={saveProject}
         onLoadProject={loadProject}
         projectFileBusy={projectFileBusy}

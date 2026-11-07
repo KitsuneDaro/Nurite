@@ -10,6 +10,7 @@ type PaletteStore = {
   addColor: (color: string) => void
   removeSelectedColor: () => string | null
   moveColor: (fromIndex: number, toIndex: number) => void
+  reset: () => void
 }
 
 type PersistedPaletteState = Pick<PaletteStore, 'colors' | 'selectedIndex'>
@@ -74,6 +75,7 @@ export const usePaletteStore = create<PaletteStore>()(
 
         set({ colors: nextColors, selectedIndex: nextSelectedIndex })
       },
+      reset: () => set({ colors: [...palette], selectedIndex: 9 }),
     }),
     {
       name: 'webpainter-color-palette',

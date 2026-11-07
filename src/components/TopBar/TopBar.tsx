@@ -1,5 +1,6 @@
 import {
   ArrowDownToLine,
+  FilePlus2,
   FolderOpen,
   Save,
   Sparkles,
@@ -8,6 +9,7 @@ import { useEffect, useRef, useState } from 'react'
 import './TopBar.css'
 
 type TopBarProps = {
+  onNewCanvas: () => void
   onSaveProject: () => void
   onLoadProject: (file: File) => void
   projectFileBusy: boolean
@@ -21,6 +23,7 @@ type TopBarProps = {
 }
 
 export function TopBar({
+  onNewCanvas,
   onSaveProject,
   onLoadProject,
   projectFileBusy,
@@ -57,6 +60,22 @@ export function TopBar({
         />
       </div>
       <div className="topbar-actions">
+        <button
+          className="topbar-button"
+          aria-label="新しいキャンバスを作成"
+          disabled={projectFileBusy}
+          onClick={() => {
+            if (
+              !isProjectDirty
+              || window.confirm('未保存の編集内容があります。破棄して新しいキャンバスを作成しますか？')
+            ) {
+              onNewCanvas()
+            }
+          }}
+        >
+          <FilePlus2 size={16} />
+          <span>NEW</span>
+        </button>
         <button
           className="topbar-button"
           aria-label="編集ファイルを保存"
