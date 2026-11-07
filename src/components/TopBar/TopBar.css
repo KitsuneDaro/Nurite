@@ -57,6 +57,12 @@
   border-radius: 50%;
   background: #d7ad66;
   box-shadow: 0 0 9px rgba(215, 173, 102, 0.5);
+  transition: background-color 180ms ease, box-shadow 180ms ease;
+}
+
+.document-dot.saved {
+  background: #65bd9d;
+  box-shadow: 0 0 9px rgba(101, 189, 157, 0.5);
 }
 
 .document-name-input {
@@ -117,6 +123,13 @@
   color: #b9c3d0;
   background: #171c25;
   font-size: 11px;
+  opacity: 1;
+  transition: opacity 700ms ease;
+}
+
+.project-file-status.fading {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .topbar-button,

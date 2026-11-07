@@ -26,7 +26,7 @@ type CanvasWorkspaceProps = {
   debugMode: boolean
   debugField: TextureDebugField
   drawingRef: RefObject<CanvasDrawingHandle | null>
-  onHistoryChange: (history: CanvasHistoryState) => void
+  onHistoryChange: (history: CanvasHistoryState, contentChanged: boolean) => void
 }
 
 type Point = DrawingPoint
@@ -130,8 +130,7 @@ export function CanvasWorkspace({
 
   const handleStatusChange = useCallback((status: CanvasRenderStatus) => {
     setRenderStatus(status)
-    onHistoryChange(drawingRef.current?.getHistoryState() ?? { canUndo: false, canRedo: false })
-  }, [drawingRef, onHistoryChange])
+  }, [])
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
     if (event.pointerType === 'mouse' && event.button !== 0) return

@@ -22,7 +22,7 @@ type CanvasStrokeOptions = {
   brushColor: string
   followDirection: boolean
   eraserEnabled: boolean
-  onHistoryChange: (history: CanvasHistoryState) => void
+  onHistoryChange: (history: CanvasHistoryState, contentChanged: boolean) => void
 }
 
 export function useCanvasStroke({
@@ -46,6 +46,7 @@ export function useCanvasStroke({
   const previousDirectionRef = useRef<DrawingPoint | null>(null)
   const nextSegmentIdRef = useRef(0)
   const activeStrokeIdRef = useRef(0)
+  const activeStrokeHasDrawingRef = useRef(false)
   const drawingFrameRef = useRef<number | null>(null)
   const drawingStyleRef = useRef<BrushStrokeStyle>({
     shape: brushShape,
@@ -204,10 +205,15 @@ export function useCanvasStroke({
       nextSegmentIdRef.current,
     ) ?? 0
     nextSegmentIdRef.current += processedSegmentCount
+    activeStrokeHasDrawingRef.current ||= processedSegmentCount > 0
     lastDrawnPointRef.current = pointsToDraw[pointsToDraw.length - 1]?.point ?? previousPoint
     if (nextSegmentIdRef.current >= MAX_STROKE_SEGMENTS) {
-      onHistoryChange(drawingRef.current?.endStroke() ?? { canUndo: false, canRedo: false })
+      onHistoryChange(
+        drawingRef.current?.endStroke() ?? { canUndo: false, canRedo: false },
+        activeStrokeHasDrawingRef.current,
+      )
       activePointerRef.current = null
+      activeStrokeHasDrawingRef.current = false
       lastDrawnPointRef.current = null
       lastInputPointRef.current = null
       distanceSinceDirectionSampleRef.current = 0
@@ -267,6 +273,7 @@ export function useCanvasStroke({
     const strokeId = drawingRef.current?.beginStroke()
     if (strokeId === null || strokeId === undefined) return
     activePointerRef.current = pointerId
+    activeStrokeHasDrawingRef.current = false
     lastDrawnPointRef.current = null
     lastInputPointRef.current = null
     distanceSinceDirectionSampleRef.current = 0
@@ -300,7 +307,11 @@ export function useCanvasStroke({
     previousInputVelocityRef.current = { x: 0, y: 0 }
     previousInputAccelerationRef.current = { x: 0, y: 0 }
     previousDirectionRef.current = null
-    onHistoryChange(drawingRef.current?.endStroke() ?? { canUndo: false, canRedo: false })
+    onHistoryChange(
+      drawingRef.current?.endStroke() ?? { canUndo: false, canRedo: false },
+      activeStrokeHasDrawingRef.current,
+    )
+    activeStrokeHasDrawingRef.current = false
   }, [drawingRef, flushPendingPoints, onHistoryChange])
 
   const cancelStroke = useCallback(() => {

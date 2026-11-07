@@ -4,14 +4,15 @@ import {
   Save,
   Sparkles,
 } from 'lucide-react'
-import { useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './TopBar.css'
 
 type TopBarProps = {
   onSaveProject: () => void
   onLoadProject: (file: File) => void
   projectFileBusy: boolean
-  projectFileStatus: string | null
+  projectFileStatus: { message: string; id: number } | null
+  isProjectDirty: boolean
   canvasName: string
   onCanvasNameChange: (name: string) => void
   onExportCanvas: () => void
@@ -24,6 +25,7 @@ export function TopBar({
   onLoadProject,
   projectFileBusy,
   projectFileStatus,
+  isProjectDirty,
   canvasName,
   onCanvasNameChange,
   onExportCanvas,
@@ -39,7 +41,12 @@ export function TopBar({
         <span>web<span>painter</span></span>
       </a>
       <div className="document-title">
-        <span className="document-dot" />
+        <span
+          className={`document-dot${isProjectDirty ? '' : ' saved'}`}
+          role="img"
+          aria-label={isProjectDirty ? '未保存の編集があります' : '保存済み'}
+          title={isProjectDirty ? '未保存' : '保存済み'}
+        />
         <input
           className="document-name-input"
           type="text"
@@ -77,7 +84,15 @@ export function TopBar({
           onChange={(event) => {
             const file = event.currentTarget.files?.[0]
             event.currentTarget.value = ''
-            if (file) onLoadProject(file)
+            if (
+              file
+              && (
+                !isProjectDirty
+                || window.confirm('未保存の編集内容があります。破棄してファイルを読み込みますか？')
+              )
+            ) {
+              onLoadProject(file)
+            }
           }}
         />
         <button
@@ -95,11 +110,37 @@ export function TopBar({
           </span>
         )}
         {projectFileStatus && (
-          <span className="project-file-status" role="status" aria-live="polite">
-            {projectFileStatus}
-          </span>
+          <TimedProjectStatus
+            key={projectFileStatus.id}
+            message={projectFileStatus.message}
+          />
         )}
       </div>
     </header>
+  )
+}
+
+function TimedProjectStatus({ message }: { message: string }) {
+  const [visible, setVisible] = useState(true)
+  const [fading, setFading] = useState(false)
+
+  useEffect(() => {
+    const fadeTimeout = window.setTimeout(() => setFading(true), 2500)
+    const hideTimeout = window.setTimeout(() => setVisible(false), 3200)
+    return () => {
+      window.clearTimeout(fadeTimeout)
+      window.clearTimeout(hideTimeout)
+    }
+  }, [])
+
+  if (!visible) return null
+  return (
+    <span
+      className={`project-file-status${fading ? ' fading' : ''}`}
+      role="status"
+      aria-live="polite"
+    >
+      {message}
+    </span>
   )
 }

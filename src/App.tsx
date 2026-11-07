@@ -24,6 +24,7 @@ import './App.css'
 
 function App() {
   const [canvasName, setCanvasName] = useState(createDefaultCanvasName)
+  const [isProjectDirty, setIsProjectDirty] = useState(true)
   const [canvasHistory, setCanvasHistory] = useState<CanvasHistoryState>({
     canUndo: false,
     canRedo: false,
@@ -42,31 +43,50 @@ function App() {
   const [debugMode, setDebugMode] = useState(false)
   const [debugField, setDebugField] = useState<TextureDebugField>(DEFAULT_TEXTURE_DEBUG_FIELD)
   const [projectFileBusy, setProjectFileBusy] = useState(false)
-  const [projectFileStatus, setProjectFileStatus] = useState<string | null>(null)
+  const [projectFileStatus, setProjectFileStatus] = useState<{ message: string; id: number } | null>(null)
   const [exportingCanvas, setExportingCanvas] = useState(false)
   const [canvasExportStatus, setCanvasExportStatus] = useState<string | null>(null)
   const drawingRef = useRef<CanvasDrawingHandle>(null)
+  const projectFileStatusIdRef = useRef(0)
   const paletteColors = usePaletteStore((state) => state.colors)
   const selectedPalette = usePaletteStore((state) => state.selectedIndex)
   const selectPaletteColor = usePaletteStore((state) => state.selectColor)
   const updateSelectedPaletteColor = usePaletteStore((state) => state.updateSelectedColor)
-  const updateCanvasHistory = useCallback((history: CanvasHistoryState) => {
+  const updateCanvasHistory = useCallback((history: CanvasHistoryState, contentChanged: boolean) => {
     setCanvasHistory(history)
+    if (contentChanged) setIsProjectDirty(true)
   }, [])
+
+  function showProjectFileStatus(message: string) {
+    projectFileStatusIdRef.current += 1
+    setProjectFileStatus({ message, id: projectFileStatusIdRef.current })
+  }
+
+  function updateCanvasName(name: string) {
+    setCanvasName(name)
+    setIsProjectDirty(true)
+  }
 
   function choosePalette(hex: string, index: number) {
     selectPaletteColor(index)
     setColor(hexToHsl(hex))
+    setIsProjectDirty(true)
   }
 
   function updateColor(nextColor: HslColor) {
     setColor(nextColor)
     updateSelectedPaletteColor(hslToHex(nextColor))
+    setIsProjectDirty(true)
+  }
+
+  function updateToolType(nextToolType: ToolType) {
+    setToolType(nextToolType)
+    setIsProjectDirty(true)
   }
 
   async function saveProject() {
     if (!drawingRef.current) {
-      setProjectFileStatus('キャンバスの準備ができていません')
+      showProjectFileStatus('キャンバスの準備ができていません')
       return
     }
 
@@ -89,10 +109,11 @@ function App() {
         },
         textures: drawingRef.current.exportProjectTextures(),
       })
-      setProjectFileStatus('編集ファイルを保存しました')
+      setIsProjectDirty(false)
+      showProjectFileStatus('編集ファイルを保存しました')
     } catch (error) {
       console.error('Failed to save the canvas project.', error)
-      setProjectFileStatus('編集ファイルの保存に失敗しました')
+      showProjectFileStatus('編集ファイルの保存に失敗しました')
     } finally {
       setProjectFileBusy(false)
     }
@@ -118,10 +139,11 @@ function App() {
       })
       setCanvasName(project.name)
       setCanvasHistory(drawing.getHistoryState())
-      setProjectFileStatus('編集ファイルを読み込みました')
+      setIsProjectDirty(false)
+      showProjectFileStatus('編集ファイルを読み込みました')
     } catch (error) {
       console.error('Failed to load the canvas project.', error)
-      setProjectFileStatus(
+      showProjectFileStatus(
         error instanceof Error
           ? `編集ファイルを読み込めませんでした: ${error.message}`
           : '編集ファイルを読み込めませんでした',
@@ -151,13 +173,21 @@ function App() {
   }
 
   function undoStroke() {
+    const canUndo = drawingRef.current?.getHistoryState().canUndo ?? false
     const history = drawingRef.current?.undo()
-    if (history) setCanvasHistory(history)
+    if (history) {
+      setCanvasHistory(history)
+      if (canUndo) setIsProjectDirty(true)
+    }
   }
 
   function redoStroke() {
+    const canRedo = drawingRef.current?.getHistoryState().canRedo ?? false
     const history = drawingRef.current?.redo()
-    if (history) setCanvasHistory(history)
+    if (history) {
+      setCanvasHistory(history)
+      if (canRedo) setIsProjectDirty(true)
+    }
   }
 
   return (
@@ -167,8 +197,9 @@ function App() {
         onLoadProject={loadProject}
         projectFileBusy={projectFileBusy}
         projectFileStatus={projectFileStatus}
+        isProjectDirty={isProjectDirty}
         canvasName={canvasName}
-        onCanvasNameChange={setCanvasName}
+        onCanvasNameChange={updateCanvasName}
         onExportCanvas={exportCanvas}
         exportingCanvas={exportingCanvas}
         canvasExportStatus={canvasExportStatus}
@@ -181,10 +212,10 @@ function App() {
           paintType={paintType}
           toolType={toolType}
           followDirection={followDirection}
-          onBrushShapeChange={setBrushShape}
-          onPaintTypeChange={setPaintType}
-          onToolTypeChange={setToolType}
-          onFollowDirectionChange={setFollowDirection}
+          onBrushShapeChange={(shape) => { setBrushShape(shape); setIsProjectDirty(true) }}
+          onPaintTypeChange={(type) => { setPaintType(type); setIsProjectDirty(true) }}
+          onToolTypeChange={updateToolType}
+          onFollowDirectionChange={(follow) => { setFollowDirection(follow); setIsProjectDirty(true) }}
           canUndo={canvasHistory.canUndo}
           canRedo={canvasHistory.canRedo}
           onUndo={undoStroke}
@@ -207,7 +238,7 @@ function App() {
           brushColor={hslToHex(color)}
           followDirection={followDirection}
           toolType={toolType}
-          onToolTypeChange={setToolType}
+          onToolTypeChange={updateToolType}
           onEyedropperPick={(hex) => updateColor(hexToHsl(hex))}
           debugMode={debugMode}
           debugField={debugField}
@@ -223,7 +254,7 @@ function App() {
           brushSize={brushSize}
           onColorChange={updateColor}
           onPaletteSelect={choosePalette}
-          onBrushSizeChange={setBrushSize}
+          onBrushSizeChange={(size) => { setBrushSize(size); setIsProjectDirty(true) }}
         />
       </main>
 
