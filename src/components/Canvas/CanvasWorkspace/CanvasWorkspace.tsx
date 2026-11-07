@@ -225,8 +225,6 @@ export function CanvasWorkspace({
             />
           </div>
         </div>
-        <span className="canvas-dimension dimension-top">1024 px</span>
-        <span className="canvas-dimension dimension-bottom">1024 px</span>
       </div>
       <div className="canvas-statusbar">
         <span>
@@ -235,7 +233,6 @@ export function CanvasWorkspace({
           {renderStatus === 'ready' && 'キャンバス準備完了'}
           {renderStatus === 'error' && <span role="alert">テクスチャを読み込めませんでした</span>}
         </span>
-        <span>X: 512 &nbsp; Y: 512</span>
       </div>
     </section>
   )

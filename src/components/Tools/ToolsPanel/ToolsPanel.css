@@ -32,10 +32,6 @@
   .tools-panel .panel-heading,
   .tools-panel .tool-type-selector,
   .tools-panel .history-buttons,
-  .tools-panel .panel-footer {
-    grid-column: 1 / -1;
-  }
-
   .tools-panel .panel-heading {
     margin-bottom: 13px;
   }

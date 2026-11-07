@@ -133,7 +133,7 @@
   }
 }
 
-@media (max-height: 760px) and (min-width: 761px) {
+@media (max-height: 860px) and (min-width: 761px) {
   .workspace {
     padding-top: 10px;
     padding-bottom: 10px;
@@ -182,15 +182,9 @@
   }
 }
 
-@media (max-height: 600px) and (min-width: 761px) {
+@media (max-height: 700px) and (min-width: 761px) {
   .color-wheel-wrap {
     width: min(100%, 90px);
-  }
-}
-
-@media (max-height: 560px) and (min-width: 761px) {
-  .color-wheel-wrap {
-    width: min(100%, 64px);
   }
 
   .palette-grid {
@@ -199,6 +193,25 @@
   }
 
   .palette-section {
+    padding-top: 5px;
+  }
+}
+
+@media (max-height: 660px) and (min-width: 761px) {
+  .color-wheel-wrap {
+    width: min(100%, 64px);
+  }
+
+  .color-heading {
+    margin-bottom: 8px;
+  }
+
+  .color-wheel-wrap {
+    margin-top: 3px;
+    margin-bottom: 3px;
+  }
+
+  .brush-size-section {
     padding-top: 5px;
   }
 }

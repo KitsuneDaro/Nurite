@@ -42,23 +42,6 @@
   display: block;
 }
 
-.canvas-dimension {
-  position: absolute;
-  left: 50%;
-  color: #748296;
-  font-size: 9px;
-  letter-spacing: 0.5px;
-  transform: translateX(-50%);
-}
-
-.dimension-top {
-  top: 10px;
-}
-
-.dimension-bottom {
-  bottom: 10px;
-}
-
 .canvas-statusbar {
   min-height: 31px;
   padding: 0 5px;
@@ -93,13 +76,6 @@
     width: min(calc(100cqw - 40px), calc(100cqh - 50px), 60vh);
   }
 
-  .dimension-top {
-    top: 7px;
-  }
-
-  .dimension-bottom {
-    bottom: 7px;
-  }
 }
 
 @media (max-width: 520px) {

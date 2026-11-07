@@ -5,7 +5,6 @@ import { ToolTypeSelector } from '../ToolTypeSelector/ToolTypeSelector'
 import { DirectionToggle } from '../DirectionToggle/DirectionToggle'
 import { HistoryControls } from '../HistoryControls/HistoryControls'
 import { PanelHeading } from '../../Panel/PanelHeading/PanelHeading'
-import { PanelStatus } from '../PanelStatus/PanelStatus'
 import { ToolOptionGroup } from '../ToolOptionGroup/ToolOptionGroup'
 import './ToolsPanel.css'
 
@@ -72,7 +71,6 @@ export function ToolsPanel({
         onUndo={onUndo}
         onRedo={onRedo}
       />
-      <PanelStatus />
     </aside>
   )
 }
