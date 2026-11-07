@@ -1,4 +1,31 @@
 export const squareBrushGeometryFunctions = `
+  const float MAX_DIRECTION_TURN_RADIANS = 0.3490658504;
+
+  vec2 clampDirectionTurn(vec2 previousDirection, vec2 currentDirection) {
+    float previousLength = length(previousDirection);
+    float currentLength = length(currentDirection);
+    if (previousLength <= 0.0001 || currentLength <= 0.0001) {
+      return currentDirection;
+    }
+
+    vec2 previousTangent = previousDirection / previousLength;
+    vec2 currentTangent = currentDirection / currentLength;
+    float crossProduct = previousTangent.x * currentTangent.y
+      - previousTangent.y * currentTangent.x;
+    float directionChange = atan(crossProduct, dot(previousTangent, currentTangent));
+    float limitedChange = clamp(
+      directionChange,
+      -MAX_DIRECTION_TURN_RADIANS,
+      MAX_DIRECTION_TURN_RADIANS
+    );
+    float cosine = cos(limitedChange);
+    float sine = sin(limitedChange);
+    return vec2(
+      previousTangent.x * cosine - previousTangent.y * sine,
+      previousTangent.x * sine + previousTangent.y * cosine
+    ) * currentLength;
+  }
+
   vec2 getSquareTangent(vec2 direction, vec2 fallbackDirection) {
     float directionLength = length(direction);
     if (directionLength > 0.5) return direction / directionLength;
@@ -61,11 +88,15 @@ export const squareBrushGeometryFunctions = `
   ) {
     vec2 tangent = getSquareTangent(segment, previousDirection);
     vec2 previousTangent = getSquareTangent(previousDirection, tangent);
+    vec2 limitedTangent = getSquareTangent(
+      clampDirectionTurn(previousTangent, tangent),
+      previousTangent
+    );
     vec2 previousSquareAxis = followDirection > 0.5
       ? rotateSquareAxis(previousTangent)
       : vec2(1.0, 0.0);
     vec2 currentSquareAxis = followDirection > 0.5
-      ? rotateSquareAxis(tangent)
+      ? rotateSquareAxis(limitedTangent)
       : vec2(1.0, 0.0);
     vec2 segmentNormal = length(segment) > 0.0001
       ? normalize(vec2(-segment.y, segment.x))
