@@ -11,6 +11,7 @@ import {
   textureDebugFragmentShader,
   textureDebugVertexShader,
 } from './CanvasDrawingShader'
+import { oilDepthFragmentShader, oilNormalFragmentShader } from './shaders/OilSurfaceShader'
 import { exportTextureTargets } from './CanvasTextureExport'
 import { exportCanvasImage } from './CanvasImageExport'
 import { CANVAS_SIZE, MAX_STROKE_SEGMENTS } from './CanvasConstants'
@@ -45,6 +46,26 @@ type SquareStrokeDistanceCaps = {
   endFollowDirection: number
 }
 
+type DrawingBounds = {
+  left: number
+  right: number
+  top: number
+  bottom: number
+}
+
+function unionDrawingBounds(
+  current: DrawingBounds | null,
+  next: DrawingBounds,
+): DrawingBounds {
+  if (!current) return next
+  return {
+    left: Math.min(current.left, next.left),
+    right: Math.max(current.right, next.right),
+    top: Math.min(current.top, next.top),
+    bottom: Math.max(current.bottom, next.bottom),
+  }
+}
+
 function createMetadataMatchUniforms(metadataTexture: THREE.Texture) {
   return {
     uStrokeId: { value: 0 },
@@ -61,24 +82,36 @@ export class CanvasDrawingRenderer {
   private readonly copyMaterial: THREE.ShaderMaterial
   private readonly copyScene: THREE.Scene
   private readonly copyCamera: THREE.OrthographicCamera
+  private readonly oilDepthTarget: THREE.WebGLRenderTarget
+  private readonly oilNormalTarget: THREE.WebGLRenderTarget
+  private readonly oilDepthMaterial: THREE.ShaderMaterial
+  private readonly oilNormalMaterial: THREE.ShaderMaterial
+  private readonly oilSurfaceScene: THREE.Scene
+  private readonly oilSurfaceGeometry: THREE.PlaneGeometry
+  private readonly oilSurfaceMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
+  private readonly overrideEdgeDistanceTarget: THREE.WebGLRenderTarget
+  private readonly mergedEdgeDistanceTarget: THREE.WebGLRenderTarget
   private readonly metadataMaterial: THREE.ShaderMaterial
   private readonly colorMaterial: THREE.ShaderMaterial
   private readonly drawingStateMaterialA: THREE.ShaderMaterial
   private readonly drawingStateMaterialB: THREE.ShaderMaterial
   private readonly drawingStateMaterialC: THREE.ShaderMaterial
+  private readonly overrideEdgeDistanceMaterial: THREE.ShaderMaterial
   private readonly squareStrokeCapMaterial: THREE.ShaderMaterial
   private readonly brushMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
   private readonly brushScene: THREE.Scene
   private readonly brushCamera: THREE.OrthographicCamera
   private readonly displayScene: THREE.Scene
   private readonly displayCamera: THREE.OrthographicCamera
-  private readonly displayMaterial: THREE.MeshBasicMaterial
+  private readonly displayMaterial: THREE.MeshStandardMaterial
   private readonly debugScene: THREE.Scene
   private readonly debugCamera: THREE.OrthographicCamera
   private readonly debugMaterial: THREE.ShaderMaterial
   private debugMode = false
   private debugField = DEFAULT_TEXTURE_DEBUG_FIELD
   private squareStrokeDistanceCaps: SquareStrokeDistanceCaps | null = null
+  private oilSurfaceMapsDirty = true
+  private overrideDistanceHasValues = false
   private disposed = false
 
   constructor(container: HTMLElement) {
@@ -108,7 +141,11 @@ export class CanvasDrawingRenderer {
     this.canvasExportTarget.texture.colorSpace = THREE.SRGBColorSpace
 
     this.copyMaterial = new THREE.ShaderMaterial({
-      uniforms: { uSource: { value: this.colorTarget.texture } },
+      uniforms: {
+        uSource: { value: this.colorTarget.texture },
+        uOverrideTexture: { value: this.drawingStateTargetC.texture },
+        uMergeOverride: { value: 0 },
+      },
       vertexShader: `
         varying vec2 vUv;
         void main() {
@@ -119,8 +156,15 @@ export class CanvasDrawingRenderer {
       fragmentShader: `
         varying vec2 vUv;
         uniform sampler2D uSource;
+        uniform sampler2D uOverrideTexture;
+        uniform float uMergeOverride;
         void main() {
-          gl_FragColor = texture2D(uSource, vUv);
+          vec4 source = texture2D(uSource, vUv);
+          if (uMergeOverride > 0.5) {
+            vec2 overrideDistance = texture2D(uOverrideTexture, vUv).rg;
+            if (overrideDistance.g > 0.5) source.g = overrideDistance.r;
+          }
+          gl_FragColor = source;
         }
       `,
       depthTest: false,
@@ -131,6 +175,41 @@ export class CanvasDrawingRenderer {
     this.copyScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), this.copyMaterial))
     this.copyCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.1, 10)
     this.copyCamera.position.z = 2
+
+    this.overrideEdgeDistanceTarget = createRenderTarget()
+    this.mergedEdgeDistanceTarget = createRenderTarget()
+    this.oilDepthTarget = createRenderTarget(THREE.HalfFloatType)
+    this.oilNormalTarget = createRenderTarget(THREE.HalfFloatType)
+    this.oilDepthMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uDrawingStateA: { value: this.drawingStateTargetA.texture },
+        uDrawingStateC: { value: this.drawingStateTargetC.texture },
+        uDepthScale: { value: 0.12 },
+      },
+      vertexShader: textureDebugVertexShader,
+      fragmentShader: oilDepthFragmentShader,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    })
+    this.oilNormalMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uDepthTexture: { value: this.oilDepthTarget.texture },
+        uTexelSize: {
+          value: new THREE.Vector2(1 / CANVAS_SIZE, 1 / CANVAS_SIZE),
+        },
+        uNormalStrength: { value: 3 },
+      },
+      vertexShader: textureDebugVertexShader,
+      fragmentShader: oilNormalFragmentShader,
+      depthTest: false,
+      depthWrite: false,
+      toneMapped: false,
+    })
+    this.oilSurfaceGeometry = new THREE.PlaneGeometry(2, 2)
+    this.oilSurfaceScene = new THREE.Scene()
+    this.oilSurfaceMesh = new THREE.Mesh(this.oilSurfaceGeometry, this.oilDepthMaterial)
+    this.oilSurfaceScene.add(this.oilSurfaceMesh)
 
     this.metadataMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -203,6 +282,33 @@ export class CanvasDrawingRenderer {
         uBrushSize: { value: 1 },
         uShape: { value: 0 },
         uFollowDirection: { value: 0 },
+        uOverridePass: { value: 0 },
+      },
+      vertexShader: brushVertexShader,
+      fragmentShader: brushStrokeDistanceFragmentShader,
+      transparent: true,
+      blending: THREE.CustomBlending,
+      blendEquation: THREE.MaxEquation,
+      blendSrc: THREE.OneFactor,
+      blendDst: THREE.OneFactor,
+      blendEquationAlpha: THREE.MaxEquation,
+      blendSrcAlpha: THREE.OneFactor,
+      blendDstAlpha: THREE.OneFactor,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    })
+    this.overrideEdgeDistanceMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        ...createMetadataMatchUniforms(this.metadataTarget.texture),
+        uStart: { value: new THREE.Vector2() },
+        uEnd: { value: new THREE.Vector2() },
+        uPreviousDirection: { value: new THREE.Vector2() },
+        uBrushSize: { value: 1 },
+        uShape: { value: 0 },
+        uFollowDirection: { value: 0 },
+        uOverridePass: { value: 1 },
       },
       vertexShader: brushVertexShader,
       fragmentShader: brushStrokeDistanceFragmentShader,
@@ -226,6 +332,7 @@ export class CanvasDrawingRenderer {
         uBrushSize: { value: 1 },
         uFollowDirection: { value: 0 },
         uStartCap: { value: 0 },
+        uOverridePass: { value: 0 },
         uResolution: { value: new THREE.Vector2(CANVAS_SIZE, CANVAS_SIZE) },
       },
       vertexShader: brushVertexShader,
@@ -251,10 +358,21 @@ export class CanvasDrawingRenderer {
     this.brushCamera.position.z = 2
 
     const displayGeometry = new THREE.PlaneGeometry(CANVAS_SIZE, CANVAS_SIZE)
-    this.displayMaterial = new THREE.MeshBasicMaterial({ map: this.colorTarget.texture })
+    this.displayMaterial = new THREE.MeshStandardMaterial({
+      map: this.colorTarget.texture,
+      normalMap: this.oilNormalTarget.texture,
+      roughnessMap: this.oilDepthTarget.texture,
+      roughness: 1,
+      metalness: 0,
+      normalScale: new THREE.Vector2(0.8, 0.8),
+    })
     this.displayScene = new THREE.Scene()
     this.displayScene.background = new THREE.Color('#FFFFFF')
     this.displayScene.add(new THREE.Mesh(displayGeometry, this.displayMaterial))
+    this.displayScene.add(new THREE.AmbientLight(0xFFFFFF, 2.2))
+    const oilLight = new THREE.DirectionalLight(0xFFFFFF, 2.2)
+    oilLight.position.set(-360, 460, 720)
+    this.displayScene.add(oilLight)
     this.displayCamera = new THREE.OrthographicCamera(
       -CANVAS_SIZE / 2,
       CANVAS_SIZE / 2,
@@ -333,6 +451,8 @@ export class CanvasDrawingRenderer {
       'drawing-state-a': this.drawingStateTargetA,
       'drawing-state-b': this.drawingStateTargetB,
       'drawing-state-c': this.drawingStateTargetC,
+      'oil-depth': this.oilDepthTarget,
+      'oil-normal': this.oilNormalTarget,
     }
     this.debugField = field
     this.debugMaterial.uniforms.uTexture.value = targets[definition.source]!.texture
@@ -373,24 +493,32 @@ export class CanvasDrawingRenderer {
 
   beginStroke(): number | null {
     if (this.disposed) return null
+    const strokeId = this.history.beginStroke()
+    if (strokeId === null) return null
+    this.clearTarget(this.overrideEdgeDistanceTarget, '#000000', 0)
     this.squareStrokeDistanceCaps = null
-    return this.history.beginStroke()
+    this.overrideDistanceHasValues = false
+    return strokeId
   }
 
   endStroke(): CanvasHistoryState {
     this.renderSquareStrokeDistanceCaps()
+    if (this.overrideDistanceHasValues) this.mergeStrokeOverrideEdgeDistance()
     this.squareStrokeDistanceCaps = null
+    this.overrideDistanceHasValues = false
     return this.history.endStroke()
   }
 
   undo(): CanvasHistoryState {
     const state = this.history.undo()
+    this.oilSurfaceMapsDirty = true
     this.renderOutput()
     return state
   }
 
   redo(): CanvasHistoryState {
     const state = this.history.redo()
+    this.oilSurfaceMapsDirty = true
     this.renderOutput()
     return state
   }
@@ -433,7 +561,7 @@ export class CanvasDrawingRenderer {
       Math.max(1, style.size),
     )
     const shape = style.shape === 'round' ? 0 : style.shape === 'flat' ? 1 : 2
-    const paintStyleId = PAINT_STYLE_IDS[style.paintType]
+    const paintStyleId = style.eraserEnabled ? 0 : PAINT_STYLE_IDS[style.paintType]
     const followDirection = style.followDirection ? 1 : 0
     this.metadataMaterial.uniforms.uBrushSize.value = brushSize
     this.metadataMaterial.uniforms.uShape.value = shape
@@ -449,16 +577,19 @@ export class CanvasDrawingRenderer {
     )
 
     let processedSegmentCount = 0
+    let surfaceBounds: DrawingBounds | null = null
     for (const segment of segments) {
       const segmentId = startingSegmentId + processedSegmentCount
       if (segmentId >= MAX_STROKE_SEGMENTS) break
 
-      if (!this.setSegmentUniforms(
+      const bounds = this.setSegmentUniforms(
         segment.start,
         segment.end,
         brushSize,
         segment.previousDirection,
-      )) continue
+      )
+      if (!bounds) continue
+      surfaceBounds = unionDrawingBounds(surfaceBounds, bounds)
 
       this.updateSquareStrokeDistanceCaps(segment, brushSize, followDirection)
       this.metadataMaterial.uniforms.uSegmentId.value = segmentId
@@ -467,6 +598,7 @@ export class CanvasDrawingRenderer {
         this.drawingStateMaterialA,
         this.drawingStateMaterialB,
         this.drawingStateMaterialC,
+        this.overrideEdgeDistanceMaterial,
       ]) {
         material.uniforms.uStrokeId.value = strokeId
         material.uniforms.uSegmentId.value = segmentId
@@ -491,14 +623,35 @@ export class CanvasDrawingRenderer {
       this.drawingStateMaterialC.uniforms.uPreviousDirection.value.copy(
         this.metadataMaterial.uniforms.uPreviousDirection.value,
       )
+      for (const material of [
+        this.drawingStateMaterialC,
+        this.overrideEdgeDistanceMaterial,
+      ]) {
+        material.uniforms.uStrokeId.value = strokeId
+        material.uniforms.uSegmentId.value = segmentId
+        material.uniforms.uStart.value.copy(this.metadataMaterial.uniforms.uStart.value)
+        material.uniforms.uEnd.value.copy(this.metadataMaterial.uniforms.uEnd.value)
+        material.uniforms.uPreviousDirection.value.copy(
+          this.metadataMaterial.uniforms.uPreviousDirection.value,
+        )
+        material.uniforms.uBrushSize.value = brushSize
+        material.uniforms.uShape.value = shape
+        material.uniforms.uFollowDirection.value = followDirection
+      }
       this.renderSegmentPass(this.metadataTarget, this.metadataMaterial)
       this.renderSegmentPass(this.drawingStateTargetA, this.drawingStateMaterialA)
       this.renderSegmentPass(this.drawingStateTargetB, this.drawingStateMaterialB)
       this.renderSegmentPass(this.drawingStateTargetC, this.drawingStateMaterialC)
+      this.renderSegmentPass(this.overrideEdgeDistanceTarget, this.overrideEdgeDistanceMaterial)
       this.renderSegmentPass(this.colorTarget, this.colorMaterial)
       processedSegmentCount += 1
     }
 
+    if (processedSegmentCount > 0 && surfaceBounds) {
+      this.overrideDistanceHasValues = true
+      this.oilSurfaceMapsDirty = true
+      this.updateOilSurfaceMaps(surfaceBounds)
+    }
     this.renderer.setScissorTest(false)
     this.renderer.autoClear = previousAutoClear
     this.renderOutput()
@@ -563,7 +716,11 @@ export class CanvasDrawingRenderer {
       uniforms.uFollowDirection.value = followDirection
       uniforms.uStartCap.value = isStart ? 1 : 0
       if (this.setSegmentUniforms(endpoint, endpoint, brushSize, direction)) {
+        uniforms.uOverridePass.value = 0
         this.renderSegmentPass(this.drawingStateTargetC, this.squareStrokeCapMaterial)
+        uniforms.uOverridePass.value = 1
+        this.renderSegmentPass(this.overrideEdgeDistanceTarget, this.squareStrokeCapMaterial)
+        this.overrideDistanceHasValues = true
       }
     }
 
@@ -583,6 +740,20 @@ export class CanvasDrawingRenderer {
     )
     this.renderer.setScissorTest(false)
     this.renderer.autoClear = previousAutoClear
+  }
+
+  private mergeStrokeOverrideEdgeDistance() {
+    const uniforms = this.copyMaterial.uniforms
+    uniforms.uSource.value = this.drawingStateTargetC.texture
+    uniforms.uOverrideTexture.value = this.overrideEdgeDistanceTarget.texture
+    uniforms.uMergeOverride.value = 1
+    this.renderer.setRenderTarget(this.mergedEdgeDistanceTarget)
+    this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    this.renderer.setScissorTest(false)
+    this.renderer.render(this.copyScene, this.copyCamera)
+    uniforms.uMergeOverride.value = 0
+    this.copyTarget(this.mergedEdgeDistanceTarget, this.drawingStateTargetC)
+    this.oilSurfaceMapsDirty = true
     this.renderOutput()
   }
 
@@ -597,6 +768,14 @@ export class CanvasDrawingRenderer {
       object.geometry.dispose()
     })
     this.copyMaterial.dispose()
+    this.overrideEdgeDistanceMaterial.dispose()
+    this.overrideEdgeDistanceTarget.dispose()
+    this.mergedEdgeDistanceTarget.dispose()
+    this.oilDepthMaterial.dispose()
+    this.oilNormalMaterial.dispose()
+    this.oilDepthTarget.dispose()
+    this.oilNormalTarget.dispose()
+    this.oilSurfaceGeometry.dispose()
     this.metadataMaterial.dispose()
     this.colorMaterial.dispose()
     this.drawingStateMaterialA.dispose()
@@ -627,6 +806,7 @@ export class CanvasDrawingRenderer {
   }
 
   private copyTarget(source: THREE.WebGLRenderTarget, destination: THREE.WebGLRenderTarget) {
+    this.copyMaterial.uniforms.uMergeOverride.value = 0
     this.copyMaterial.uniforms.uSource.value = source.texture
     this.renderer.setRenderTarget(destination)
     this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
@@ -643,6 +823,7 @@ export class CanvasDrawingRenderer {
 
   private renderOutput() {
     this.updateDisplayedTextures()
+    if (this.oilSurfaceMapsDirty) this.updateOilSurfaceMaps()
     this.renderer.setRenderTarget(null)
     this.renderer.setScissorTest(false)
     this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
@@ -659,6 +840,7 @@ export class CanvasDrawingRenderer {
       this.drawingStateMaterialA,
       this.drawingStateMaterialB,
       this.drawingStateMaterialC,
+      this.overrideEdgeDistanceMaterial,
     ]) {
       material.uniforms.uMetadataTexture.value = this.metadataTarget.texture
     }
@@ -668,9 +850,49 @@ export class CanvasDrawingRenderer {
       'drawing-state-a': this.drawingStateTargetA,
       'drawing-state-b': this.drawingStateTargetB,
       'drawing-state-c': this.drawingStateTargetC,
+      'oil-depth': this.oilDepthTarget,
+      'oil-normal': this.oilNormalTarget,
     }
     this.debugMaterial.uniforms.uTexture.value =
       targets[getTextureDebugField(this.debugField).source].texture
+  }
+
+  private updateOilSurfaceMaps(bounds?: DrawingBounds) {
+    this.oilDepthMaterial.uniforms.uDrawingStateA.value = this.drawingStateTargetA.texture
+    this.oilDepthMaterial.uniforms.uDrawingStateC.value = this.drawingStateTargetC.texture
+
+    this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    this.renderer.setScissorTest(bounds !== undefined)
+    if (bounds) {
+      this.renderer.setScissor(
+        bounds.left,
+        CANVAS_SIZE - bounds.bottom,
+        bounds.right - bounds.left,
+        bounds.bottom - bounds.top,
+      )
+    }
+    this.oilSurfaceMesh.material = this.oilDepthMaterial
+    this.renderer.setRenderTarget(this.oilDepthTarget)
+    this.renderer.render(this.oilSurfaceScene, this.copyCamera)
+
+    if (bounds) {
+      const padding = 1
+      const left = Math.max(0, bounds.left - padding)
+      const right = Math.min(CANVAS_SIZE, bounds.right + padding)
+      const top = Math.max(0, bounds.top - padding)
+      const bottom = Math.min(CANVAS_SIZE, bounds.bottom + padding)
+      this.renderer.setScissor(
+        left,
+        CANVAS_SIZE - bottom,
+        right - left,
+        bottom - top,
+      )
+    }
+    this.oilSurfaceMesh.material = this.oilNormalMaterial
+    this.renderer.setRenderTarget(this.oilNormalTarget)
+    this.renderer.render(this.oilSurfaceScene, this.copyCamera)
+    this.renderer.setScissorTest(false)
+    this.oilSurfaceMapsDirty = false
   }
 
   private setSegmentUniforms(
@@ -678,13 +900,13 @@ export class CanvasDrawingRenderer {
     end: DrawingPoint,
     brushSize: number,
     previousDirection: DrawingPoint | null,
-  ): boolean {
+  ): DrawingBounds | null {
     const boundsPadding = Math.ceil(brushSize) + 2
     const left = Math.max(0, Math.floor(Math.min(start.x, end.x) - boundsPadding))
     const right = Math.min(CANVAS_SIZE, Math.ceil(Math.max(start.x, end.x) + boundsPadding))
     const top = Math.max(0, Math.floor(Math.min(start.y, end.y) - boundsPadding))
     const bottom = Math.min(CANVAS_SIZE, Math.ceil(Math.max(start.y, end.y) + boundsPadding))
-    if (right <= left || bottom <= top) return false
+    if (right <= left || bottom <= top) return null
 
     this.metadataMaterial.uniforms.uStart.value.set(start.x, start.y)
     this.metadataMaterial.uniforms.uEnd.value.set(end.x, end.y)
@@ -695,7 +917,7 @@ export class CanvasDrawingRenderer {
     this.brushMesh.position.set((left + right) / 2, (top + bottom) / 2, 0)
     this.brushMesh.scale.set(right - left, bottom - top, 1)
     this.renderer.setScissor(left, CANVAS_SIZE - bottom, right - left, bottom - top)
-    return true
+    return { left, right, top, bottom }
   }
 
   private renderSegmentPass(

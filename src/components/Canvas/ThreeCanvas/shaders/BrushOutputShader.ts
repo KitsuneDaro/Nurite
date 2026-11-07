@@ -177,6 +177,7 @@ export const brushStrokeDistanceFragmentShader = `
   uniform float uBrushSize;
   uniform int uShape;
   uniform float uFollowDirection;
+  uniform float uOverridePass;
 
   ${brushEdgeDistanceFunctions}
 
@@ -192,9 +193,11 @@ export const brushStrokeDistanceFragmentShader = `
       uShape,
       uFollowDirection
     );
-    float strokeDistance = clamp(edgeDistance * 2.0, 0.0, 255.0);
-    float brushSize = floor(clamp(uBrushSize, 0.0, 255.0) + 0.5);
-    gl_FragColor = vec4(strokeDistance, brushSize, 0.0, 1.0);
+    float strokeDistance = clamp(edgeDistance * 2.0, 0.0, 255.0) / 255.0;
+    float brushSize = floor(clamp(uBrushSize, 0.0, 255.0) + 0.5) / 255.0;
+    gl_FragColor = uOverridePass > 0.5
+      ? vec4(strokeDistance, 1.0, 0.0, 0.0)
+      : vec4(strokeDistance, 0.0, brushSize, 0.0);
   }
 `
 
@@ -204,6 +207,7 @@ export const squareBrushStrokeCapFragmentShader = `
   uniform float uBrushSize;
   uniform float uFollowDirection;
   uniform float uStartCap;
+  uniform float uOverridePass;
   uniform vec2 uResolution;
 
   vec2 rotateSquareAxis(vec2 direction) {
@@ -237,9 +241,11 @@ export const squareBrushStrokeCapFragmentShader = `
     );
     if (edgeDistance <= 0.0) discard;
 
-    float strokeDistance = clamp(edgeDistance * 2.0, 0.0, 255.0);
-    float brushSize = floor(clamp(uBrushSize, 0.0, 255.0) + 0.5);
-    gl_FragColor = vec4(strokeDistance, brushSize, 0.0, 1.0);
+    float strokeDistance = clamp(edgeDistance * 2.0, 0.0, 255.0) / 255.0;
+    float brushSize = floor(clamp(uBrushSize, 0.0, 255.0) + 0.5) / 255.0;
+    gl_FragColor = uOverridePass > 0.5
+      ? vec4(strokeDistance, 1.0, 0.0, 0.0)
+      : vec4(strokeDistance, 0.0, brushSize, 0.0);
   }
 `
 

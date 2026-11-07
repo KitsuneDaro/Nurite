@@ -1,7 +1,6 @@
 import { CANVAS_SIZE } from '../CanvasConstants'
 
 export type TexturePixels = Uint8Array
-  | Uint16Array
 export type TextureName =
   | 'metadata'
   | 'color'
@@ -19,15 +18,6 @@ function linearToSrgb(value: number) {
     ? linear * 12.92
     : 1.055 * linear ** (1 / 2.4) - 0.055
   return clampByte(srgb * 255)
-}
-
-function halfFloatToNumber(value: number) {
-  const sign = (value & 0x8000) === 0 ? 1 : -1
-  const exponent = (value >> 10) & 0x1F
-  const fraction = value & 0x03FF
-  if (exponent === 0) return sign * 2 ** -14 * (fraction / 1024)
-  if (exponent === 0x1F) return fraction === 0 ? sign * Infinity : NaN
-  return sign * 2 ** (exponent - 15) * (1 + fraction / 1024)
 }
 
 function createPreviewPixels(name: TextureName, pixels: TexturePixels) {
@@ -49,12 +39,10 @@ function createPreviewPixels(name: TextureName, pixels: TexturePixels) {
         preview[targetIndex + 2] = 0
         preview[targetIndex + 3] = 255
       } else if (name === 'drawing-state-c') {
-        const values = pixels as Uint16Array
-        const distance = halfFloatToNumber(values[sourceRow * CANVAS_SIZE * 2 + x * 2] ?? 0)
-        const brushSize = halfFloatToNumber(values[sourceRow * CANVAS_SIZE * 2 + x * 2 + 1] ?? 0)
-        preview[targetIndex] = clampByte(distance)
-        preview[targetIndex + 1] = clampByte(brushSize)
-        preview[targetIndex + 2] = 0
+        const values = pixels as Uint8Array
+        preview[targetIndex] = values[sourceIndex] ?? 0
+        preview[targetIndex + 1] = values[sourceIndex + 1] ?? 0
+        preview[targetIndex + 2] = values[sourceIndex + 2] ?? 0
         preview[targetIndex + 3] = 255
       } else {
         const values = pixels

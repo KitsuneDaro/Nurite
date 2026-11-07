@@ -4,6 +4,8 @@ export type TextureDebugSource =
   | 'drawing-state-a'
   | 'drawing-state-b'
   | 'drawing-state-c'
+  | 'oil-depth'
+  | 'oil-normal'
 
 type TextureDebugFieldDefinition = {
   id: string
@@ -55,8 +57,16 @@ export const TEXTURE_DEBUG_GROUPS = [
   {
     label: '描画状況 C',
     fields: [
-      { id: 'stroke-edge-distance', label: 'ストローク縁距離', mode: 14, source: 'drawing-state-c' },
-      { id: 'brush-size', label: 'ブラシサイズ', mode: 15, source: 'drawing-state-c' },
+      { id: 'stroke-edge-distance', label: 'MAX縁距離', mode: 14, source: 'drawing-state-c' },
+      { id: 'override-edge-distance', label: '上書き縁距離', mode: 15, source: 'drawing-state-c' },
+      { id: 'brush-size', label: 'ブラシサイズ', mode: 18, source: 'drawing-state-c' },
+    ],
+  },
+  {
+    label: '油彩表面',
+    fields: [
+      { id: 'oil-depth', label: '深度マップ', mode: 16, source: 'oil-depth' },
+      { id: 'oil-normal', label: '法線マップ', mode: 17, source: 'oil-normal' },
     ],
   },
 ] as const satisfies readonly TextureDebugGroup[]

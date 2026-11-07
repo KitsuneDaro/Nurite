@@ -1,7 +1,6 @@
 import { CANVAS_SIZE } from './CanvasConstants'
 import { createTexturePreviewPng, type TextureName, type TexturePixels } from './CanvasTextureExport/TexturePreview'
 import { createZipArchive, type ArchiveEntry } from './CanvasTextureExport/ZipArchive'
-import { HalfFloatType, RGFormat } from 'three'
 import type { WebGLRenderTarget, WebGLRenderer } from 'three'
 
 const TEXTURE_NAMES = [
@@ -29,10 +28,7 @@ export async function exportTextureTargets(
   ],
 ) {
   const buffers = targets.map((target) => {
-    const channelCount = target.texture.format === RGFormat ? 2 : 4
-    const pixels = target.texture.type === HalfFloatType
-      ? new Uint16Array(CANVAS_SIZE * CANVAS_SIZE * channelCount)
-      : new Uint8Array(CANVAS_SIZE * CANVAS_SIZE * channelCount)
+    const pixels = new Uint8Array(CANVAS_SIZE * CANVAS_SIZE * 4)
     renderer.readRenderTargetPixels(target, 0, 0, CANVAS_SIZE, CANVAS_SIZE, pixels)
     return pixels
   })
@@ -74,12 +70,12 @@ export async function downloadTextureArchive(
         channels: 'R/G=velocity X/Y and B/A=acceleration X/Y, signed values biased by +128',
       },
       'drawing-state-c': {
-        format: 'RG16F',
-        channels: 'R=maximum stroke edge distance, twice the geometric edge distance in pixels (0-255); G=maximum encoded brush size in pixels (integer 1-255). Both channels use MAX blending.',
+        format: 'RGBA8',
+        channels: 'R=maximum stroke edge distance (0-255 px-equivalent); G=stroke-overwritten edge distance (0-255 px-equivalent, replaced for pixels covered by each completed stroke); B=maximum encoded brush size in pixels (1-255); A=unused.',
       },
     },
-    binaryStorage: 'Raw render-target bytes in WebGL bottom-up row order; RGBA8 textures use 8-bit channels and drawing-state-c uses 16-bit floating-point RG channels.',
-    previews: 'PNG previews are vertically oriented for normal image viewers; drawing-state-a previews normalize end X and end Y and visualize shape/style IDs, while drawing-state-c maps distance and brush size to red and green.',
+    binaryStorage: 'Raw render-target bytes in WebGL bottom-up row order; all exported textures use four 8-bit channels.',
+    previews: 'PNG previews are vertically oriented for normal image viewers; drawing-state-a previews normalize end X and end Y and visualize shape/style IDs, while drawing-state-c maps MAX edge distance to red, overwritten edge distance to green, and brush size to blue.',
   }
   entries.push({
     name: 'manifest.json',

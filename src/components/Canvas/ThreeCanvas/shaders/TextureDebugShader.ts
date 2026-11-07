@@ -30,9 +30,17 @@ export const textureDebugFragmentShader = `
       else if (uDebugField == 8) debugValue = brushShapeId / 3.0;
       else debugValue = paintStyleId / 3.0;
     } else if (uDebugField == 14) {
-      debugValue = value.r / 255.0;
+      debugValue = value.r;
     } else if (uDebugField == 15) {
-      debugValue = value.g / 255.0;
+      debugValue = value.g;
+    } else if (uDebugField == 16) {
+      debugValue = value.r / 12.0;
+    } else if (uDebugField == 17) {
+      gl_FragColor = vec4(value.rgb, 1.0);
+      #include <colorspace_fragment>
+      return;
+    } else if (uDebugField == 18) {
+      debugValue = value.b;
     } else {
       int channel = uDebugField - 10;
       debugValue = channel == 0 ? value.r

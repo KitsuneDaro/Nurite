@@ -46,7 +46,7 @@ function createRenderTargetSet(): RenderTargetSet {
     createRenderTarget(),
     createRenderTarget(),
     createRenderTarget(),
-    createRenderTarget(THREE.HalfFloatType, THREE.RGFormat),
+    createRenderTarget(),
   ]
 }
 
