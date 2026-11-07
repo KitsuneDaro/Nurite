@@ -28,7 +28,7 @@ export type CanvasDrawingHandle = {
   redo: () => CanvasHistoryState
   getHistoryState: () => CanvasHistoryState
   sampleColor: (point: DrawingPoint) => string
-  exportCanvas: () => Promise<void>
+  exportCanvas: (filename: string) => Promise<void>
   exportProjectTextures: () => CanvasProjectTextures
   importProjectTextures: (textures: CanvasProjectTextures) => void
 }
@@ -80,8 +80,8 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
         if (!renderer) throw new Error('The drawing renderer is not ready.')
         return renderer.sampleColor(point)
       },
-      exportCanvas() {
-        return drawingRendererRef.current?.exportCanvas()
+      exportCanvas(filename) {
+        return drawingRendererRef.current?.exportCanvas(filename)
           ?? Promise.reject(new Error('The drawing renderer is not ready.'))
       },
       exportProjectTextures() {

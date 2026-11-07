@@ -19,9 +19,11 @@ import {
   readCanvasProject,
 } from './components/Canvas/ThreeCanvas/CanvasProjectFile'
 import { hslToHex, hexToHsl } from './utils/color'
+import { createDefaultCanvasName } from './utils/canvasFileName'
 import './App.css'
 
 function App() {
+  const [canvasName, setCanvasName] = useState(createDefaultCanvasName)
   const [canvasHistory, setCanvasHistory] = useState<CanvasHistoryState>({
     canUndo: false,
     canRedo: false,
@@ -71,7 +73,10 @@ function App() {
     setProjectFileBusy(true)
     setProjectFileStatus(null)
     try {
+      const projectName = canvasName.trim() || 'Untitled'
+      setCanvasName(projectName)
       downloadCanvasProject({
+        name: projectName,
         settings: {
           brushShape,
           paintType,
@@ -111,6 +116,7 @@ function App() {
         colors: project.settings.paletteColors,
         selectedIndex: project.settings.selectedPalette,
       })
+      setCanvasName(project.name)
       setCanvasHistory(drawing.getHistoryState())
       setProjectFileStatus('編集ファイルを読み込みました')
     } catch (error) {
@@ -134,7 +140,7 @@ function App() {
     setExportingCanvas(true)
     setCanvasExportStatus(null)
     try {
-      await drawingRef.current.exportCanvas()
+      await drawingRef.current.exportCanvas(canvasName.trim() || 'Untitled')
       setCanvasExportStatus('キャンバス画像を保存しました')
     } catch (error) {
       console.error('Failed to export the canvas image.', error)
@@ -161,6 +167,8 @@ function App() {
         onLoadProject={loadProject}
         projectFileBusy={projectFileBusy}
         projectFileStatus={projectFileStatus}
+        canvasName={canvasName}
+        onCanvasNameChange={setCanvasName}
         onExportCanvas={exportCanvas}
         exportingCanvas={exportingCanvas}
         canvasExportStatus={canvasExportStatus}

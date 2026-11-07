@@ -38,6 +38,7 @@
 }
 
 .document-title {
+  min-width: 0;
   height: 34px;
   padding: 0 11px;
   display: flex;
@@ -58,8 +59,21 @@
   box-shadow: 0 0 9px rgba(215, 173, 102, 0.5);
 }
 
-.document-title svg {
-  color: #728095;
+.document-name-input {
+  width: 180px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: inherit;
+  background: transparent;
+  font: inherit;
+}
+
+.document-name-input:focus-visible {
+  outline: 1px solid #6387a2;
+  outline-offset: 3px;
+  border-radius: 2px;
 }
 
 .topbar-actions {
@@ -186,6 +200,10 @@
     font-size: 10px;
   }
 
+  .document-name-input {
+    width: 120px;
+  }
+
   .saved-status,
   .topbar-button span {
     display: none;
@@ -230,7 +248,8 @@
     max-width: 150px;
   }
 
-  .document-title > span:nth-child(2) {
+  .document-name-input {
+    width: 100px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;

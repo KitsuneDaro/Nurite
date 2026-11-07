@@ -378,7 +378,7 @@ export class CanvasDrawingRenderer {
     this.renderOutput()
   }
 
-  async exportCanvas() {
+  async exportCanvas(filename: string) {
     if (this.disposed) throw new Error('Cannot export the canvas after the renderer is disposed.')
 
     this.updateDisplayedTextures()
@@ -389,6 +389,7 @@ export class CanvasDrawingRenderer {
       output.scene,
       output.camera,
       () => this.renderOutput(),
+      filename,
     )
   }
 

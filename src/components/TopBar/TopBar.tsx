@@ -1,6 +1,5 @@
 import {
   ArrowDownToLine,
-  ChevronDown,
   FolderOpen,
   Save,
   Sparkles,
@@ -13,6 +12,8 @@ type TopBarProps = {
   onLoadProject: (file: File) => void
   projectFileBusy: boolean
   projectFileStatus: string | null
+  canvasName: string
+  onCanvasNameChange: (name: string) => void
   onExportCanvas: () => void
   exportingCanvas: boolean
   canvasExportStatus: string | null
@@ -23,6 +24,8 @@ export function TopBar({
   onLoadProject,
   projectFileBusy,
   projectFileStatus,
+  canvasName,
+  onCanvasNameChange,
   onExportCanvas,
   exportingCanvas,
   canvasExportStatus,
@@ -37,8 +40,14 @@ export function TopBar({
       </a>
       <div className="document-title">
         <span className="document-dot" />
-        <span>Starry night study</span>
-        <ChevronDown size={15} />
+        <input
+          className="document-name-input"
+          type="text"
+          aria-label="キャンバスファイル名"
+          value={canvasName}
+          maxLength={120}
+          onChange={(event) => onCanvasNameChange(event.currentTarget.value)}
+        />
       </div>
       <div className="topbar-actions">
         <button

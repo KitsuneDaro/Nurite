@@ -1,6 +1,7 @@
 import type { Camera, Scene, WebGLRenderer, WebGLRenderTarget } from 'three'
 import { CANVAS_SIZE } from './CanvasConstants'
 import { downloadBlob } from '../../../utils/ZipArchive'
+import { sanitizeCanvasFileName } from '../../../utils/canvasFileName'
 
 export async function exportCanvasImage(
   renderer: WebGLRenderer,
@@ -8,6 +9,7 @@ export async function exportCanvasImage(
   scene: Scene,
   camera: Camera,
   restoreOutput: () => void,
+  filename: string,
 ) {
   renderer.setRenderTarget(target)
   renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
@@ -45,6 +47,5 @@ export async function exportCanvasImage(
       else reject(new Error('Could not encode the canvas image.'))
     }, 'image/png')
   })
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-  downloadBlob(blob, `webpainter-${timestamp}.png`)
+  downloadBlob(blob, `${sanitizeCanvasFileName(filename)}.png`)
 }

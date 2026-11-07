@@ -2,6 +2,7 @@ import type { BrushShape, BrushType, ToolType } from '../../../types'
 import { CANVAS_SIZE } from './CanvasConstants'
 import type { ArchiveEntry } from '../../../utils/ZipArchive'
 import { createZipArchive, downloadBlob, readZipArchive } from '../../../utils/ZipArchive'
+import { sanitizeCanvasFileName } from '../../../utils/canvasFileName'
 
 export type CanvasProjectSettings = {
   brushShape: BrushShape
@@ -23,6 +24,7 @@ export type CanvasProjectTextures = {
 }
 
 export type CanvasProject = {
+  name: string
   settings: CanvasProjectSettings
   textures: CanvasProjectTextures
 }
@@ -39,12 +41,14 @@ const TEXTURE_FILES = {
 } as const
 
 export function createCanvasProjectArchive(
+  name: string,
   settings: CanvasProjectSettings,
   textures: CanvasProjectTextures,
 ) {
   const manifest = {
     format: FORMAT_ID,
     version: FORMAT_VERSION,
+    name,
     canvas: { width: CANVAS_SIZE, height: CANVAS_SIZE },
     settings,
     textures: Object.fromEntries(
@@ -66,14 +70,8 @@ export function createCanvasProjectArchive(
 }
 
 export function downloadCanvasProject(project: CanvasProject) {
-  const archive = createCanvasProjectArchive(project.settings, project.textures)
-  const now = new Date()
-  const filename = [
-    now.getFullYear().toString().padStart(4, '0'),
-    (now.getMonth() + 1).toString().padStart(2, '0'),
-    now.getDate().toString().padStart(2, '0'),
-  ].join('') + `_${now.getHours().toString().padStart(2, '0')}.zip`
-  downloadBlob(archive, filename)
+  const archive = createCanvasProjectArchive(project.name, project.settings, project.textures)
+  downloadBlob(archive, `${sanitizeCanvasFileName(project.name)}.zip`)
 }
 
 export async function readCanvasProject(file: File): Promise<CanvasProject> {
@@ -90,7 +88,7 @@ export async function readCanvasProject(file: File): Promise<CanvasProject> {
   } catch (error) {
     throw new Error('The project settings file is invalid JSON.', { cause: error })
   }
-  const settings = validateManifest(manifest)
+  const project = validateManifest(manifest, getProjectNameFromFile(file.name))
   const expectedPaths = new Set(['project.json', 'textures/', ...Object.values(TEXTURE_FILES)])
   for (const name of files.keys()) {
     if (!expectedPaths.has(name)) throw new Error(`The project contains an unexpected file: ${name}`)
@@ -110,10 +108,10 @@ export async function readCanvasProject(file: File): Promise<CanvasProject> {
     }
     textures[key as keyof CanvasProjectTextures] = data
   }
-  return { settings, textures }
+  return { ...project, textures }
 }
 
-function validateManifest(value: unknown): CanvasProjectSettings {
+function validateManifest(value: unknown, fallbackName: string) {
   if (!isRecord(value) || value.format !== FORMAT_ID || value.version !== FORMAT_VERSION) {
     throw new Error('This ZIP is not a supported WebPainter project file.')
   }
@@ -128,8 +126,12 @@ function validateManifest(value: unknown): CanvasProjectSettings {
   }
 
   const { settings, textures } = value
+  const name = value.name === undefined ? fallbackName : value.name
   if (
-    !isBrushShape(settings.brushShape)
+    typeof name !== 'string'
+    || name.trim().length === 0
+    || name.length > 120
+    || !isBrushShape(settings.brushShape)
     || !isBrushType(settings.paintType)
     || !isToolType(settings.toolType)
     || typeof settings.followDirection !== 'boolean'
@@ -164,15 +166,23 @@ function validateManifest(value: unknown): CanvasProjectSettings {
   }
 
   return {
-    brushShape: settings.brushShape,
-    paintType: settings.paintType,
-    followDirection: settings.followDirection,
-    brushSize: settings.brushSize,
-    toolType: settings.toolType,
-    color: settings.color,
-    paletteColors: [...settings.paletteColors],
-    selectedPalette: settings.selectedPalette,
+    name,
+    settings: {
+      brushShape: settings.brushShape,
+      paintType: settings.paintType,
+      followDirection: settings.followDirection,
+      brushSize: settings.brushSize,
+      toolType: settings.toolType,
+      color: settings.color,
+      paletteColors: [...settings.paletteColors],
+      selectedPalette: settings.selectedPalette,
+    },
   }
+}
+
+function getProjectNameFromFile(fileName: string) {
+  const withoutExtension = fileName.replace(/\.zip$/i, '')
+  return withoutExtension.slice(0, 120) || 'Untitled'
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
