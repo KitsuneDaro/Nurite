@@ -4,7 +4,8 @@ export const oilDepthFragmentShader = `
   uniform sampler2D uDrawingStateC;
   uniform float uDepthScale;
 
-  const float OIL_RIDGE_WAVELENGTH_PX = 5.0;
+  const float OIL_RIDGE_WAVELENGTH_PX = 20.0;
+  const float OIL_MAX_DEPTH_PX = 8.0;
   const float PI = 3.14159265359;
 
   void main() {
@@ -21,12 +22,12 @@ export const oilDepthFragmentShader = `
     float maxEdgeDistance = strokeData.r * 255.0;
     float overrideEdgeDistance = strokeData.g * 255.0;
     float edgeDistance = maxEdgeDistance * 0.2 + overrideEdgeDistance * 0.8;
-    float ridgeDistance = clamp(brushSize - edgeDistance, 0.0, brushSize);
+    float ridgeDistance = clamp(edgeDistance, 0.0, brushSize);
     float x = ridgeDistance / brushSize;
     float ridge = abs(sin(PI * ridgeDistance / OIL_RIDGE_WAVELENGTH_PX));
     float centerDip = abs(cos(PI * x));
     float profile = ridge * (0.25 + 0.75 * centerDip);
-    float depth = brushSize * profile * uDepthScale;
+    float depth = OIL_MAX_DEPTH_PX * profile * uDepthScale;
     gl_FragColor = vec4(depth, 0.4, 0.0, 1.0);
   }
 `
