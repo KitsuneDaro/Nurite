@@ -70,7 +70,14 @@ export function TopBar({
           className="topbar-button"
           aria-label="編集ファイルを読み込み"
           disabled={projectFileBusy}
-          onClick={() => projectFileInputRef.current?.click()}
+          onClick={() => {
+            if (
+              !isProjectDirty
+              || window.confirm('未保存の編集内容があります。破棄してファイルを読み込みますか？')
+            ) {
+              projectFileInputRef.current?.click()
+            }
+          }}
         >
           <FolderOpen size={16} />
           <span>LOAD</span>
@@ -84,15 +91,7 @@ export function TopBar({
           onChange={(event) => {
             const file = event.currentTarget.files?.[0]
             event.currentTarget.value = ''
-            if (
-              file
-              && (
-                !isProjectDirty
-                || window.confirm('未保存の編集内容があります。破棄してファイルを読み込みますか？')
-              )
-            ) {
-              onLoadProject(file)
-            }
+            if (file) onLoadProject(file)
           }}
         />
         <button

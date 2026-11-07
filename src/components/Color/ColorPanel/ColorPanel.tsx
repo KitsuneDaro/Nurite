@@ -15,6 +15,8 @@ type ColorPanelProps = {
   brushSize: number
   onColorChange: (color: HslColor) => void
   onPaletteSelect: (hex: string, index: number) => void
+  onPaletteAdd: () => void
+  onPaletteRemove: () => void
   onBrushSizeChange: (size: number) => void
 }
 
@@ -27,6 +29,8 @@ export function ColorPanel({
   brushSize,
   onColorChange,
   onPaletteSelect,
+  onPaletteAdd,
+  onPaletteRemove,
   onBrushSizeChange,
 }: ColorPanelProps) {
   return (
@@ -44,6 +48,8 @@ export function ColorPanel({
         currentHex={currentHex}
         selectedPalette={selectedPalette}
         onSelect={onPaletteSelect}
+        onAdd={onPaletteAdd}
+        onRemove={onPaletteRemove}
       />
       <BrushSizeControl size={brushSize} onChange={onBrushSizeChange} />
     </aside>

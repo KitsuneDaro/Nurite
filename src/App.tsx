@@ -52,6 +52,8 @@ function App() {
   const selectedPalette = usePaletteStore((state) => state.selectedIndex)
   const selectPaletteColor = usePaletteStore((state) => state.selectColor)
   const updateSelectedPaletteColor = usePaletteStore((state) => state.updateSelectedColor)
+  const addPaletteColor = usePaletteStore((state) => state.addColor)
+  const removeSelectedPaletteColor = usePaletteStore((state) => state.removeSelectedColor)
   const updateCanvasHistory = useCallback((history: CanvasHistoryState, contentChanged: boolean) => {
     setCanvasHistory(history)
     if (contentChanged) setIsProjectDirty(true)
@@ -76,6 +78,18 @@ function App() {
   function updateColor(nextColor: HslColor) {
     setColor(nextColor)
     updateSelectedPaletteColor(hslToHex(nextColor))
+    setIsProjectDirty(true)
+  }
+
+  function addCurrentColorToPalette() {
+    addPaletteColor(hslToHex(color))
+    setIsProjectDirty(true)
+  }
+
+  function removeCurrentPaletteColor() {
+    const nextColor = removeSelectedPaletteColor()
+    if (!nextColor) return
+    setColor(hexToHsl(nextColor))
     setIsProjectDirty(true)
   }
 
@@ -254,6 +268,8 @@ function App() {
           brushSize={brushSize}
           onColorChange={updateColor}
           onPaletteSelect={choosePalette}
+          onPaletteAdd={addCurrentColorToPalette}
+          onPaletteRemove={removeCurrentPaletteColor}
           onBrushSizeChange={(size) => { setBrushSize(size); setIsProjectDirty(true) }}
         />
       </main>
