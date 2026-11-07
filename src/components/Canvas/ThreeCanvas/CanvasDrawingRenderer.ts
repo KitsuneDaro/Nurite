@@ -368,7 +368,7 @@ export class CanvasDrawingRenderer {
     this.displayScene = new THREE.Scene()
     this.displayScene.background = new THREE.Color('#FFFFFF')
     this.displayScene.add(new THREE.Mesh(displayGeometry, this.displayMaterial))
-    this.displayScene.add(new THREE.AmbientLight(0xFFFFFF, 2.2))
+    this.displayScene.add(new THREE.AmbientLight(0xFFFFFF, 0.7))
     const oilLight = new THREE.DirectionalLight(0xFFFFFF, 2.2)
     oilLight.position.set(-360, 460, 720)
     this.displayScene.add(oilLight)

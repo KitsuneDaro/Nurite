@@ -15,7 +15,7 @@ export const oilDepthFragmentShader = `
     float brushSize = strokeData.b * 255.0;
 
     if (paintStyleId != 2.0 || brushSize <= 0.0) {
-      gl_FragColor = vec4(0.0, 1.0, 0.0, 1.0);
+      gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
       return;
     }
 
