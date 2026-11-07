@@ -17,6 +17,7 @@ type ColorPanelProps = {
   onPaletteSelect: (hex: string, index: number) => void
   onPaletteAdd: () => void
   onPaletteRemove: () => void
+  onPaletteMove: (fromIndex: number, toIndex: number) => void
   onBrushSizeChange: (size: number) => void
 }
 
@@ -31,6 +32,7 @@ export function ColorPanel({
   onPaletteSelect,
   onPaletteAdd,
   onPaletteRemove,
+  onPaletteMove,
   onBrushSizeChange,
 }: ColorPanelProps) {
   return (
@@ -50,6 +52,7 @@ export function ColorPanel({
         onSelect={onPaletteSelect}
         onAdd={onPaletteAdd}
         onRemove={onPaletteRemove}
+        onMove={onPaletteMove}
       />
       <BrushSizeControl size={brushSize} onChange={onBrushSizeChange} />
     </aside>

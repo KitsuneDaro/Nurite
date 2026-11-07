@@ -54,6 +54,7 @@ function App() {
   const updateSelectedPaletteColor = usePaletteStore((state) => state.updateSelectedColor)
   const addPaletteColor = usePaletteStore((state) => state.addColor)
   const removeSelectedPaletteColor = usePaletteStore((state) => state.removeSelectedColor)
+  const movePaletteColor = usePaletteStore((state) => state.moveColor)
   const updateCanvasHistory = useCallback((history: CanvasHistoryState, contentChanged: boolean) => {
     setCanvasHistory(history)
     if (contentChanged) setIsProjectDirty(true)
@@ -91,6 +92,11 @@ function App() {
     if (!nextColor) return
     setColor(hexToHsl(nextColor))
     setIsProjectDirty(true)
+  }
+
+  function movePaletteEntry(fromIndex: number, toIndex: number) {
+    movePaletteColor(fromIndex, toIndex)
+    if (fromIndex !== toIndex) setIsProjectDirty(true)
   }
 
   function updateToolType(nextToolType: ToolType) {
@@ -270,6 +276,7 @@ function App() {
           onPaletteSelect={choosePalette}
           onPaletteAdd={addCurrentColorToPalette}
           onPaletteRemove={removeCurrentPaletteColor}
+          onPaletteMove={movePaletteEntry}
           onBrushSizeChange={(size) => { setBrushSize(size); setIsProjectDirty(true) }}
         />
       </main>

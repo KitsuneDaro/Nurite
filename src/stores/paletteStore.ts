@@ -9,6 +9,7 @@ type PaletteStore = {
   updateSelectedColor: (color: string) => void
   addColor: (color: string) => void
   removeSelectedColor: () => string | null
+  moveColor: (fromIndex: number, toIndex: number) => void
 }
 
 type PersistedPaletteState = Pick<PaletteStore, 'colors' | 'selectedIndex'>
@@ -45,6 +46,33 @@ export const usePaletteStore = create<PaletteStore>()(
         const nextSelectedIndex = Math.min(selectedIndex, nextColors.length - 1)
         set({ colors: nextColors, selectedIndex: nextSelectedIndex })
         return nextColors[nextSelectedIndex]
+      },
+      moveColor: (fromIndex, toIndex) => {
+        const { colors, selectedIndex } = get()
+        if (
+          fromIndex < 0
+          || fromIndex >= colors.length
+          || toIndex < 0
+          || toIndex >= colors.length
+          || fromIndex === toIndex
+        ) {
+          return
+        }
+
+        const nextColors = [...colors]
+        const [movedColor] = nextColors.splice(fromIndex, 1)
+        nextColors.splice(toIndex, 0, movedColor)
+
+        let nextSelectedIndex = selectedIndex
+        if (selectedIndex === fromIndex) {
+          nextSelectedIndex = toIndex
+        } else if (fromIndex < selectedIndex && toIndex >= selectedIndex) {
+          nextSelectedIndex -= 1
+        } else if (fromIndex > selectedIndex && toIndex <= selectedIndex) {
+          nextSelectedIndex += 1
+        }
+
+        set({ colors: nextColors, selectedIndex: nextSelectedIndex })
       },
     }),
     {

@@ -1,4 +1,5 @@
 import { Check, Minus, Plus } from 'lucide-react'
+import { useState } from 'react'
 import './ColorPalette.css'
 
 type ColorPaletteProps = {
@@ -8,6 +9,7 @@ type ColorPaletteProps = {
   onSelect: (hex: string, index: number) => void
   onAdd: () => void
   onRemove: () => void
+  onMove: (fromIndex: number, toIndex: number) => void
 }
 
 export function ColorPalette({
@@ -17,7 +19,11 @@ export function ColorPalette({
   onSelect,
   onAdd,
   onRemove,
+  onMove,
 }: ColorPaletteProps) {
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null)
+  const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null)
+
   return (
     <section className="palette-section">
       <div className="section-title">
@@ -42,8 +48,39 @@ export function ColorPalette({
         {colors.map((hex, index) => (
           <button
             key={`${hex}-${index}`}
-            className={`palette-swatch ${selectedPalette === index ? 'active' : ''}`}
+            className={[
+              'palette-swatch',
+              selectedPalette === index ? 'active' : '',
+              draggingIndex === index ? 'dragging' : '',
+              dropTargetIndex === index && draggingIndex !== index ? 'drop-target' : '',
+            ].filter(Boolean).join(' ')}
             style={{ backgroundColor: selectedPalette === index ? currentHex : hex }}
+            draggable
+            title="ドラッグして並べ替え"
+            onDragStart={(event) => {
+              event.dataTransfer.effectAllowed = 'move'
+              event.dataTransfer.setData('text/plain', String(index))
+              setDraggingIndex(index)
+            }}
+            onDragOver={(event) => {
+              event.preventDefault()
+              event.dataTransfer.dropEffect = 'move'
+              setDropTargetIndex(index)
+            }}
+            onDrop={(event) => {
+              event.preventDefault()
+              const draggedIndex = event.dataTransfer.getData('text/plain')
+              const fromIndex = Number(draggedIndex)
+              if (draggedIndex !== '' && Number.isInteger(fromIndex)) {
+                onMove(fromIndex, index)
+              }
+              setDraggingIndex(null)
+              setDropTargetIndex(null)
+            }}
+            onDragEnd={() => {
+              setDraggingIndex(null)
+              setDropTargetIndex(null)
+            }}
             onClick={() => onSelect(hex, index)}
             aria-label={`色 ${selectedPalette === index ? currentHex : hex}`}
             aria-pressed={selectedPalette === index}

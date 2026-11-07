@@ -61,8 +61,8 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 5px;
   color: #fff;
-  cursor: pointer;
-  transition: transform 120ms ease, box-shadow 120ms ease;
+  cursor: grab;
+  transition: transform 120ms ease, box-shadow 120ms ease, opacity 120ms ease;
 }
 
 .palette-swatch:hover {
@@ -74,6 +74,19 @@
   outline: 2px solid #c5e8ff;
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(114, 185, 231, 0.16);
+}
+
+.palette-swatch:active {
+  cursor: grabbing;
+}
+
+.palette-swatch.dragging {
+  opacity: 0.4;
+}
+
+.palette-swatch.drop-target {
+  outline: 2px dashed #c5e8ff;
+  outline-offset: 2px;
 }
 
 @media (max-width: 520px) {
