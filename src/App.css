@@ -201,26 +201,4 @@
   .palette-section {
     padding-top: 5px;
   }
-
-  .tools-panel .panel-heading {
-    margin-bottom: 8px;
-  }
-
-  .tools-panel .control-section {
-    margin-bottom: 6px;
-  }
-
-  .tools-panel .tool-choice {
-    height: 46px;
-    gap: 3px;
-  }
-
-  .tools-panel .tool-type-selector {
-    min-height: 38px;
-    margin-bottom: 9px;
-  }
-
-  .tools-panel .action-tile {
-    min-height: 48px;
-  }
 }
