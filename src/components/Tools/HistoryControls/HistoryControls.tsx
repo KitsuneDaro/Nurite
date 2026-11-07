@@ -23,7 +23,7 @@ export function HistoryControls({
         disabled={!canUndo}
         onClick={onUndo}
       >
-        <Undo2 size={20} /><span>元に戻す</span>
+        <Undo2 size={20} /><span>UNDO</span>
       </button>
       <button
         className="action-tile"
@@ -31,7 +31,7 @@ export function HistoryControls({
         disabled={!canRedo}
         onClick={onRedo}
       >
-        <Redo2 size={20} /><span>やり直す</span>
+        <Redo2 size={20} /><span>REDO</span>
       </button>
     </div>
   )

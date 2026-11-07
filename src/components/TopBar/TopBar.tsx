@@ -41,7 +41,6 @@ export function TopBar({
         <ChevronDown size={15} />
       </div>
       <div className="topbar-actions">
-        <span className="saved-status"><span /> 色設定を自動保存</span>
         <button
           className="topbar-button"
           aria-label="編集ファイルを保存"
@@ -49,7 +48,7 @@ export function TopBar({
           onClick={onSaveProject}
         >
           <Save size={16} />
-          <span>{projectFileBusy ? '処理中' : 'セーブ'}</span>
+          <span>{projectFileBusy ? '処理中' : 'SAVE'}</span>
         </button>
         <button
           className="topbar-button"
@@ -58,7 +57,7 @@ export function TopBar({
           onClick={() => projectFileInputRef.current?.click()}
         >
           <FolderOpen size={16} />
-          <span>ロード</span>
+          <span>LOAD</span>
         </button>
         <input
           ref={projectFileInputRef}
@@ -79,7 +78,7 @@ export function TopBar({
           onClick={onExportCanvas}
         >
           <ArrowDownToLine size={16} />
-          <span>{exportingCanvas ? '出力中' : 'エクスポート'}</span>
+          <span>{exportingCanvas ? '出力中' : 'EXPORT'}</span>
         </button>
         {canvasExportStatus && (
           <span className="canvas-export-status" role="status" aria-live="polite">
