@@ -3,9 +3,9 @@ import {
   FilePlus2,
   FolderOpen,
   Save,
-  Sparkles,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import nuritaIcon from '../../assets/nurita.svg?no-inline'
 import './TopBar.css'
 
 type TopBarProps = {
@@ -40,7 +40,7 @@ export function TopBar({
   return (
     <header className="topbar">
       <a className="brand" href="#" aria-label="Nurite ホーム">
-        <span className="brand-mark"><Sparkles size={18} /></span>
+        <img className="brand-mark" src={nuritaIcon} alt="" />
         <span>Nurite</span>
       </a>
       <div className="document-title">

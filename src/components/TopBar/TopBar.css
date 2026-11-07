@@ -21,20 +21,10 @@
   text-decoration: none;
 }
 
-.brand > span:last-child > span {
-  color: #92a2b7;
-  font-weight: 500;
-}
-
 .brand-mark {
   width: 29px;
   height: 29px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(123, 191, 237, 0.3);
-  border-radius: 9px;
-  color: #95d1f6;
-  background: linear-gradient(145deg, #29445a, #202d3c);
+  object-fit: contain;
 }
 
 .document-title {
