@@ -21,7 +21,12 @@ export const oilDepthFragmentShader = `
 
     float maxEdgeDistance = strokeData.r * 255.0;
     float overrideEdgeDistance = strokeData.g * 255.0;
-    float edgeDistance = maxEdgeDistance * 0.2 + overrideEdgeDistance * 0.8;
+    float centerFactor = clamp(overrideEdgeDistance / brushSize, 0.0, 1.0);
+    float maxDistanceWeight = 0.2 * (
+      1.0 - (1.0 - centerFactor) * (1.0 - centerFactor)
+    );
+    float edgeDistance = maxEdgeDistance * maxDistanceWeight
+      + overrideEdgeDistance * (1.0 - maxDistanceWeight);
     float ridgeDistance = clamp(edgeDistance, 0.0, brushSize);
     float x = ridgeDistance / brushSize;
     float ridge = abs(sin(PI * ridgeDistance / OIL_RIDGE_WAVELENGTH_PX));

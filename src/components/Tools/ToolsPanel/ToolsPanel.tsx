@@ -54,6 +54,7 @@ export function ToolsPanel({
         options={brushShapes}
         selected={brushShape}
         onSelect={onBrushShapeChange}
+        unavailable={['square']}
       />
       <DirectionToggle enabled={followDirection} onChange={onFollowDirectionChange} />
       <ToolOptionGroup
@@ -62,6 +63,7 @@ export function ToolsPanel({
         options={paintTypes}
         selected={paintType}
         onSelect={onPaintTypeChange}
+        unavailable={['watercolor']}
       />
       <EraserToggle enabled={eraserEnabled} onChange={onEraserChange} />
       <HistoryControls

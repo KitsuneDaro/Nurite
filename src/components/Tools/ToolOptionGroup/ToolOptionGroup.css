@@ -53,6 +53,34 @@
   box-shadow: inset 0 0 0 1px rgba(100, 177, 224, 0.1), 0 0 14px rgba(68, 151, 204, 0.08);
 }
 
+.tool-choice.unavailable,
+.tool-choice.unavailable:hover,
+.tool-choice.unavailable.selected {
+  border-color: transparent;
+  color: #68717e;
+  background: rgba(15, 20, 28, 0.25);
+  box-shadow: none;
+  filter: grayscale(1);
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.tool-choice.unavailable-shake {
+  animation: unavailable-shake 420ms ease-in-out;
+}
+
+@keyframes unavailable-shake {
+  0%, 100% { transform: translateX(0); }
+  15%, 45%, 75% { transform: translateX(-4px); }
+  30%, 60%, 90% { transform: translateX(4px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-choice.unavailable-shake {
+    animation: none;
+  }
+}
+
 @media (max-width: 520px) {
   .control-section {
     margin-bottom: 13px;
