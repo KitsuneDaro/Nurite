@@ -102,25 +102,15 @@ function encodeDrawingStateA(x: number, y: number) {
   return new THREE.Vector4(...bytes.map((byte) => byte / 255))
 }
 
-function createBucketMask(
+function createColorBucketMask(
   color: Uint8Array,
-  metadata: Uint8Array,
   point: DrawingPoint,
-  mode: BucketFillMode,
 ) {
   const seedX = Math.floor(point.x)
   const seedY = CANVAS_SIZE - 1 - Math.floor(point.y)
   const seedPixel = seedY * CANVAS_SIZE + seedX
   const seedOffset = seedPixel * 4
   const mask = new Uint8Array(CANVAS_PIXEL_COUNT)
-
-  if (mode === 'stroke') {
-    const seedStrokeId = getStrokeId(metadata, seedOffset)
-    for (let pixel = 0; pixel < CANVAS_PIXEL_COUNT; pixel += 1) {
-      if (getStrokeId(metadata, pixel * 4) === seedStrokeId) mask[pixel] = 255
-    }
-    return mask
-  }
 
   const seedRed = color[seedOffset] ?? 0
   const seedGreen = color[seedOffset + 1] ?? 0
@@ -172,6 +162,7 @@ export class CanvasDrawingRenderer {
   private readonly oilSurface: CanvasOilSurface
   private readonly overrideEdgeDistanceTarget: THREE.WebGLRenderTarget
   private readonly mergedEdgeDistanceTarget: THREE.WebGLRenderTarget
+  private readonly bucketSourceMetadataTarget: THREE.WebGLRenderTarget
   private readonly metadataMaterial: THREE.ShaderMaterial
   private readonly colorMaterial: THREE.ShaderMaterial
   private readonly drawingStateMaterialA: THREE.ShaderMaterial
@@ -221,6 +212,7 @@ export class CanvasDrawingRenderer {
 
     this.overrideEdgeDistanceTarget = createRenderTarget()
     this.mergedEdgeDistanceTarget = createRenderTarget()
+    this.bucketSourceMetadataTarget = createRenderTarget()
 
     this.metadataMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -376,6 +368,9 @@ export class CanvasDrawingRenderer {
     this.bucketFillMaterial = new THREE.ShaderMaterial({
       uniforms: {
         uMask: { value: emptyMaskTexture },
+        uMetadata: { value: this.metadataTarget.texture },
+        uStrokeId: { value: new THREE.Vector3() },
+        uUseStrokeId: { value: 0 },
         uValue: { value: new THREE.Vector4() },
       },
       vertexShader: bucketFillVertexShader,
@@ -639,13 +634,18 @@ export class CanvasDrawingRenderer {
       return this.history.getHistoryState()
     }
 
-    const sourceColor = this.readTargetPixels(this.colorTarget)
-    const sourceMetadata = this.readTargetPixels(this.metadataTarget)
-    const maskData = createBucketMask(sourceColor, sourceMetadata, point, mode)
-    if (!maskData) return this.history.getHistoryState()
+    const seedX = Math.floor(point.x)
+    const seedY = CANVAS_SIZE - 1 - Math.floor(point.y)
+    const seedMetadata = this.readTargetPixel(this.metadataTarget, seedX, seedY)
+    const seedStrokeId = getStrokeId(seedMetadata, 0)
+    const maskData = mode === 'color'
+      ? createColorBucketMask(this.readTargetPixels(this.colorTarget), point)
+      : null
+    if (mode === 'color' && !maskData) return this.history.getHistoryState()
 
-    const strokeId = this.history.beginStroke()
-    if (strokeId === null) return this.history.getHistoryState()
+    this.textureCopy.copy(this.metadataTarget, this.bucketSourceMetadataTarget)
+    const historyStrokeId = this.history.beginStroke()
+    if (historyStrokeId === null) return this.history.getHistoryState()
 
     const previousAutoClear = this.renderer.autoClear
     this.renderer.autoClear = false
@@ -654,27 +654,35 @@ export class CanvasDrawingRenderer {
     let maskTexture: THREE.DataTexture | null = null
     let strokeEnded = false
     try {
-      maskTexture = new THREE.DataTexture(
-        maskData,
-        CANVAS_SIZE,
-        CANVAS_SIZE,
-        THREE.RedFormat,
-        THREE.UnsignedByteType,
+      if (maskData) {
+        maskTexture = new THREE.DataTexture(
+          maskData,
+          CANVAS_SIZE,
+          CANVAS_SIZE,
+          THREE.RedFormat,
+          THREE.UnsignedByteType,
+        )
+        maskTexture.minFilter = THREE.NearestFilter
+        maskTexture.magFilter = THREE.NearestFilter
+        maskTexture.generateMipmaps = false
+        maskTexture.colorSpace = THREE.NoColorSpace
+        maskTexture.needsUpdate = true
+        this.bucketFillMaterial.uniforms.uMask.value = maskTexture
+      }
+      this.bucketFillMaterial.uniforms.uMetadata.value =
+        this.bucketSourceMetadataTarget.texture
+      this.bucketFillMaterial.uniforms.uUseStrokeId.value = mode === 'stroke' ? 1 : 0
+      this.bucketFillMaterial.uniforms.uStrokeId.value.set(
+        seedStrokeId % 256,
+        Math.floor(seedStrokeId / 256) % 256,
+        Math.floor(seedStrokeId / 65536) % 16,
       )
-      maskTexture.minFilter = THREE.NearestFilter
-      maskTexture.magFilter = THREE.NearestFilter
-      maskTexture.generateMipmaps = false
-      maskTexture.colorSpace = THREE.NoColorSpace
-      maskTexture.needsUpdate = true
-      this.bucketFillMaterial.uniforms.uMask.value = maskTexture
 
-      const x = Math.floor(point.x)
-      const y = Math.floor(point.y)
       const targets = this.history.currentTargets
       const values = [
-        encodeStrokeMetadata(strokeId),
+        encodeStrokeMetadata(historyStrokeId),
         encodeColor(color),
-        encodeDrawingStateA(x, y),
+        encodeDrawingStateA(seedX, Math.floor(point.y)),
         new THREE.Vector4(128 / 255, 128 / 255, 128 / 255, 128 / 255),
         new THREE.Vector4(0, 0, 0, 0),
       ]
@@ -689,7 +697,7 @@ export class CanvasDrawingRenderer {
         this.renderer.setRenderTarget(target)
         this.renderer.render(this.brushScene, this.brushCamera)
       }
-      this.history.markDrawing(strokeId)
+      this.history.markDrawing(historyStrokeId)
       this.oilSurfaceMapsDirty = true
       const state = this.history.endStroke()
       strokeEnded = true
@@ -707,6 +715,7 @@ export class CanvasDrawingRenderer {
       this.renderer.setRenderTarget(null)
       maskTexture?.dispose()
       this.bucketFillMaterial.uniforms.uMask.value = this.emptyBucketMaskTexture
+      this.bucketFillMaterial.uniforms.uUseStrokeId.value = 0
     }
   }
 
@@ -933,6 +942,7 @@ export class CanvasDrawingRenderer {
     this.overrideEdgeDistanceMaterial.dispose()
     this.overrideEdgeDistanceTarget.dispose()
     this.mergedEdgeDistanceTarget.dispose()
+    this.bucketSourceMetadataTarget.dispose()
     this.metadataMaterial.dispose()
     this.colorMaterial.dispose()
     this.drawingStateMaterialA.dispose()
@@ -961,6 +971,12 @@ export class CanvasDrawingRenderer {
       pixels,
     )
     return pixels
+  }
+
+  private readTargetPixel(target: THREE.WebGLRenderTarget, x: number, y: number) {
+    const pixel = new Uint8Array(4)
+    this.renderer.readRenderTargetPixels(target, x, y, 1, 1, pixel)
+    return pixel
   }
 
   private clearTarget(target: THREE.WebGLRenderTarget, color: THREE.ColorRepresentation, alpha: number) {
