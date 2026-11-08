@@ -386,7 +386,10 @@ function App() {
       }
       if (event.shiftKey) return
       if (key === 'b') actions.setToolType('brush')
-      else if (key === 'e') actions.setToolType('eraser')
+      else if (key === 'e') {
+        if (toolType === 'eraser') actions.setToolType('brush')
+        else actions.setToolType('eraser')
+      }
       else if (key === 's') actions.setToolType('eyedropper')
       else if (key === 'g' || key === 'f') actions.setToolType('bucket')
       else if (key === 'l') actions.changeBrushSize(1)
