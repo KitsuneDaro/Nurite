@@ -1,12 +1,21 @@
 import {
   ArrowDownToLine,
+  BookOpenText,
   FilePlus2,
   FolderOpen,
   Save,
+  X,
 } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import nuriteIcon from '../../../public/nurite.svg?no-inline'
+import shortcutGuide from '../../../prompts/AboutShortCutKey.md?raw'
 import './TopBar.css'
+
+const shortcutEntries = shortcutGuide.split(/\r?\n/).flatMap((line) => {
+  if (!line.startsWith('- ')) return []
+  const [label, keys] = line.slice(2).split(/[:：]\s*/, 2)
+  return label && keys ? [{ label, keys }] : []
+})
 
 type TopBarProps = {
   onRequestNewCanvas: () => void
@@ -35,12 +44,51 @@ export function TopBar({
   exportingCanvas,
   canvasExportStatus,
 }: TopBarProps) {
+  const shortcutDialogRef = useRef<HTMLDialogElement>(null)
+
   return (
     <header className="topbar">
-      <a className="brand" href="#" aria-label="Nurite ホーム">
-        <img className="brand-mark" src={nuriteIcon} alt="" />
-        <span>Nurite</span>
-      </a>
+      <div className="brand-group">
+        <a className="brand" href="#" aria-label="Nurite ホーム">
+          <img className="brand-mark" src={nuriteIcon} alt="" />
+          <span>Nurite</span>
+        </a>
+        <button
+          className="shortcuts-help-button"
+          type="button"
+          aria-label="ショートカット一覧を表示"
+          title="ショートカット一覧"
+          onClick={() => shortcutDialogRef.current?.showModal()}
+        >
+          <BookOpenText size={18} />
+        </button>
+        <dialog
+          ref={shortcutDialogRef}
+          className="shortcuts-dialog"
+          aria-labelledby="shortcuts-dialog-title"
+          onKeyDown={(event) => event.stopPropagation()}
+        >
+          <div className="shortcuts-dialog-header">
+            <h2 id="shortcuts-dialog-title">ショートカット一覧</h2>
+            <button
+              className="shortcuts-dialog-close"
+              type="button"
+              aria-label="閉じる"
+              onClick={() => shortcutDialogRef.current?.close()}
+            >
+              <X size={18} />
+            </button>
+          </div>
+          <ul className="shortcuts-list">
+            {shortcutEntries.map(({ label, keys }) => (
+              <li key={label}>
+                <span>{label}</span>
+                <kbd>{keys}</kbd>
+              </li>
+            ))}
+          </ul>
+        </dialog>
+      </div>
       <div className="document-title">
         <span
           className={`document-dot${isProjectDirty ? '' : ' saved'}`}
