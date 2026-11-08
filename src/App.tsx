@@ -33,6 +33,7 @@ type KeyboardShortcutActions = {
   setToolType: (toolType: ToolType) => void
   changeBrushSize: (delta: number) => void
   movePaletteSelection: (delta: number) => void
+  selectPaletteIndex: (index: number) => void
 }
 
 function App() {
@@ -294,6 +295,12 @@ function App() {
     choosePalette(colors[nextIndex]!, nextIndex)
   }
 
+  function selectPaletteIndex(index: number) {
+    const { colors } = usePaletteStore.getState()
+    if (index >= colors.length) return
+    choosePalette(colors[index]!, index)
+  }
+
   useEffect(() => {
     keyboardShortcutsRef.current = {
       saveProject: () => { void saveProject() },
@@ -306,6 +313,7 @@ function App() {
       setToolType: updateToolType,
       changeBrushSize,
       movePaletteSelection,
+      selectPaletteIndex,
     }
   })
 
@@ -351,6 +359,11 @@ function App() {
       }
 
       if (isEditingText || event.metaKey || event.ctrlKey) return
+      if (/^[1-9]$/.test(event.key)) {
+        event.preventDefault()
+        actions.selectPaletteIndex(Number(event.key) - 1)
+        return
+      }
       if (key === 'u') {
         event.preventDefault()
         actions.movePaletteSelection(-1)
@@ -412,10 +425,6 @@ function App() {
           onPaintTypeChange={(type) => { setPaintType(type); setIsProjectDirty(true) }}
           onToolTypeChange={updateToolType}
           onFollowDirectionChange={(follow) => { setFollowDirection(follow); setIsProjectDirty(true) }}
-          canUndo={canvasHistory.canUndo}
-          canRedo={canvasHistory.canRedo}
-          onUndo={undoStroke}
-          onRedo={redoStroke}
         />
         <CanvasToolbar
           zoom={canvasZoom}
@@ -424,6 +433,10 @@ function App() {
           onDebugModeChange={setDebugMode}
           debugField={debugField}
           onDebugFieldChange={setDebugField}
+          canUndo={canvasHistory.canUndo}
+          canRedo={canvasHistory.canRedo}
+          onUndo={undoStroke}
+          onRedo={redoStroke}
         />
         <CanvasWorkspace
           zoom={canvasZoom}

@@ -2,7 +2,6 @@ import { brushShapes, paintTypes } from '../../../constants/paint'
 import type { BrushShape, BrushType, ToolType } from '../../../types'
 import { ToolTypeSelector } from '../ToolTypeSelector/ToolTypeSelector'
 import { DirectionToggle } from '../DirectionToggle/DirectionToggle'
-import { HistoryControls } from '../HistoryControls/HistoryControls'
 import { PanelHeading } from '../../Panel/PanelHeading/PanelHeading'
 import { ToolOptionGroup } from '../ToolOptionGroup/ToolOptionGroup'
 import './ToolsPanel.css'
@@ -17,10 +16,6 @@ type ToolsPanelProps = {
   onPaintTypeChange: (type: BrushType) => void
   onToolTypeChange: (toolType: ToolType) => void
   onFollowDirectionChange: (enabled: boolean) => void
-  canUndo: boolean
-  canRedo: boolean
-  onUndo: () => void
-  onRedo: () => void
 }
 
 export function ToolsPanel({
@@ -33,10 +28,6 @@ export function ToolsPanel({
   onPaintTypeChange,
   onToolTypeChange,
   onFollowDirectionChange,
-  canUndo,
-  canRedo,
-  onUndo,
-  onRedo,
 }: ToolsPanelProps) {
   return (
     <aside className={`panel tools-panel ${mobileOpen ? 'mobile-panel-open' : ''}`}>
@@ -62,12 +53,6 @@ export function ToolsPanel({
         unavailable={['watercolor']}
       />
       <ToolTypeSelector selected={toolType} onChange={onToolTypeChange} />
-      <HistoryControls
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onUndo={onUndo}
-        onRedo={onRedo}
-      />
     </aside>
   )
 }

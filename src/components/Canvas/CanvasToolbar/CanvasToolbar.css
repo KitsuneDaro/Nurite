@@ -58,6 +58,28 @@
   gap: 8px;
 }
 
+.canvas-toolbar-actions .history-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.canvas-toolbar-actions .history-buttons .action-tile {
+  min-height: 27px;
+  padding: 0 7px;
+  flex-direction: row;
+  gap: 4px;
+  border-radius: 6px;
+}
+
+.canvas-toolbar-actions .history-buttons .action-tile svg {
+  width: 14px;
+  height: 14px;
+}
+
+.canvas-toolbar-actions .history-buttons .action-tile span {
+  font-size: 9px;
+}
+
 .texture-debug-fields {
   width: 100%;
   min-width: 0;
@@ -172,6 +194,18 @@
 
   .canvas-toolbar-actions {
     gap: 4px;
+  }
+
+  .canvas-toolbar-actions .history-buttons {
+    gap: 2px;
+  }
+
+  .canvas-toolbar-actions .history-buttons .action-tile {
+    padding: 0 5px;
+  }
+
+  .canvas-toolbar-actions .history-buttons .action-tile span {
+    display: none;
   }
 
   .texture-debug-fields {

@@ -55,6 +55,7 @@ Some brush and paint options are intentionally disabled in the UI while under de
 | `S` | Eyedropper |
 | `L` / `J` | Increase / decrease brush size by 1 px |
 | `U` / `O` | Select previous / next palette color (wraps at either end) |
+| `1`–`9` | Select palette colors 1–9 |
 | `Tab` / `Shift+Tab` while navigating palette swatches | Focus and select the next / previous swatch |
 
 Single-letter shortcuts are disabled while typing in text fields. Palette navigation works regardless of which UI control has focus. Project shortcuts retain their normal behavior, while text-field undo/redo remains under browser control. NEW and LOAD keep their unsaved-work confirmation.

@@ -1,5 +1,6 @@
 import { Bug, Minus, Plus, Layers } from 'lucide-react'
 import { TEXTURE_DEBUG_GROUPS, type TextureDebugField } from '../ThreeCanvas/TextureDebugFields'
+import { HistoryControls } from '../../Tools/HistoryControls/HistoryControls'
 import './CanvasToolbar.css'
 
 type CanvasToolbarProps = {
@@ -9,6 +10,10 @@ type CanvasToolbarProps = {
   onDebugModeChange: (enabled: boolean) => void
   debugField: TextureDebugField
   onDebugFieldChange: (field: TextureDebugField) => void
+  canUndo: boolean
+  canRedo: boolean
+  onUndo: () => void
+  onRedo: () => void
 }
 
 const MIN_ZOOM = 0.1
@@ -22,6 +27,10 @@ export function CanvasToolbar({
   onDebugModeChange,
   debugField,
   onDebugFieldChange,
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
 }: CanvasToolbarProps) {
   return (
     <div className={`canvas-toolbar${debugMode ? ' debug-mode' : ''}`}>
@@ -42,6 +51,12 @@ export function CanvasToolbar({
           <Bug size={14} />
           <span>デバッグ</span>
         </button>
+        <HistoryControls
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onUndo={onUndo}
+          onRedo={onRedo}
+        />
         <div className="canvas-zoom">
           <button
             aria-label="縮小"
