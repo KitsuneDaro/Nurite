@@ -88,20 +88,6 @@ function encodeColor(color: string) {
   return new THREE.Vector4(linearColor.r, linearColor.g, linearColor.b, 1)
 }
 
-function encodeDrawingStateA(x: number, y: number) {
-  const encodedX = Math.floor(Math.min(1023, Math.max(-1024, x - 512)) + 1024)
-  const encodedY = Math.floor(Math.min(1023, Math.max(-1024, y - 512)) + 1024)
-  const shapeId = 1
-  const paintStyleId = 1
-  const bytes = [
-    encodedX % 256,
-    Math.floor(encodedX / 256) + (encodedY % 32) * 8,
-    Math.floor(encodedY / 32) + (shapeId % 4) * 64,
-    Math.floor(shapeId / 4) + paintStyleId * 8,
-  ]
-  return new THREE.Vector4(...bytes.map((byte) => byte / 255))
-}
-
 function createColorBucketMask(
   color: Uint8Array,
   point: DrawingPoint,
@@ -371,6 +357,7 @@ export class CanvasDrawingRenderer {
         uMetadata: { value: this.metadataTarget.texture },
         uStrokeId: { value: new THREE.Vector3() },
         uUseStrokeId: { value: 0 },
+        uWriteMetadata: { value: 0 },
         uValue: { value: new THREE.Vector4() },
       },
       vertexShader: bucketFillVertexShader,
@@ -679,24 +666,24 @@ export class CanvasDrawingRenderer {
       )
 
       const targets = this.history.currentTargets
+      const fillTargets = [targets[0], targets[1]]
       const values = [
         encodeStrokeMetadata(historyStrokeId),
         encodeColor(color),
-        encodeDrawingStateA(seedX, Math.floor(point.y)),
-        new THREE.Vector4(128 / 255, 128 / 255, 128 / 255, 128 / 255),
-        new THREE.Vector4(0, 0, 0, 0),
       ]
-      for (let index = 0; index < targets.length; index += 1) {
-        const target = targets[index]
+      for (let index = 0; index < fillTargets.length; index += 1) {
+        const target = fillTargets[index]
         const value = values[index]
         if (!target || !value) throw new Error('A bucket-fill render target is missing.')
         this.bucketFillMaterial.uniforms.uValue.value.copy(value)
+        this.bucketFillMaterial.uniforms.uWriteMetadata.value = index === 0 ? 1 : 0
         this.brushMesh.material = this.bucketFillMaterial
         this.brushMesh.position.set(CANVAS_SIZE / 2, CANVAS_SIZE / 2, 0)
         this.brushMesh.scale.set(CANVAS_SIZE, CANVAS_SIZE, 1)
         this.renderer.setRenderTarget(target)
         this.renderer.render(this.brushScene, this.brushCamera)
       }
+      this.bucketFillMaterial.uniforms.uWriteMetadata.value = 0
       this.history.markDrawing(historyStrokeId)
       this.oilSurfaceMapsDirty = true
       const state = this.history.endStroke()
@@ -716,6 +703,7 @@ export class CanvasDrawingRenderer {
       maskTexture?.dispose()
       this.bucketFillMaterial.uniforms.uMask.value = this.emptyBucketMaskTexture
       this.bucketFillMaterial.uniforms.uUseStrokeId.value = 0
+      this.bucketFillMaterial.uniforms.uWriteMetadata.value = 0
     }
   }
 
