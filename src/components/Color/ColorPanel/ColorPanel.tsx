@@ -1,6 +1,5 @@
 import { PaintBucket } from 'lucide-react'
 import type { HslColor } from 'react-colorful'
-import { BrushSizeControl } from '../BrushSizeControl/BrushSizeControl'
 import { ColorPalette } from '../ColorPalette/ColorPalette'
 import { ColorPicker } from '../ColorPicker/ColorPicker'
 import { PanelHeading } from '../../Panel/PanelHeading/PanelHeading'
@@ -12,13 +11,11 @@ type ColorPanelProps = {
   currentHex: string
   paletteColors: readonly string[]
   selectedPalette: number
-  brushSize: number
   onColorChange: (color: HslColor) => void
   onPaletteSelect: (hex: string, index: number) => void
   onPaletteAdd: () => void
   onPaletteRemove: () => void
   onPaletteMove: (fromIndex: number, toIndex: number) => void
-  onBrushSizeChange: (size: number) => void
 }
 
 export function ColorPanel({
@@ -27,13 +24,11 @@ export function ColorPanel({
   currentHex,
   paletteColors,
   selectedPalette,
-  brushSize,
   onColorChange,
   onPaletteSelect,
   onPaletteAdd,
   onPaletteRemove,
   onPaletteMove,
-  onBrushSizeChange,
 }: ColorPanelProps) {
   return (
     <aside className={`panel color-panel ${mobileOpen ? 'mobile-panel-open' : ''}`}>
@@ -54,7 +49,6 @@ export function ColorPanel({
         onRemove={onPaletteRemove}
         onMove={onPaletteMove}
       />
-      <BrushSizeControl size={brushSize} onChange={onBrushSizeChange} />
     </aside>
   )
 }

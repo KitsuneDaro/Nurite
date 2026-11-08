@@ -1,5 +1,10 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef } from 'react'
-import type { BrushStrokeStyle, DrawingPoint, DrawingSegment } from '../../../types'
+import type {
+  BrushStrokeStyle,
+  BucketFillMode,
+  DrawingPoint,
+  DrawingSegment,
+} from '../../../types'
 import type { CanvasProjectTextures } from './CanvasProjectFile'
 import {
   CanvasDrawingRenderer,
@@ -22,6 +27,11 @@ export type CanvasDrawingHandle = {
     strokeId: number,
     startingSegmentId: number,
   ) => number
+  fillBucket: (
+    point: DrawingPoint,
+    color: string,
+    mode: BucketFillMode,
+  ) => CanvasHistoryState
   setDebugMode: (enabled: boolean) => void
   setDebugField: (field: TextureDebugField) => void
   undo: () => CanvasHistoryState
@@ -59,6 +69,11 @@ export const ThreeCanvas = forwardRef<CanvasDrawingHandle, ThreeCanvasProps>(
           strokeId,
           startingSegmentId,
         ) ?? 0
+      },
+      fillBucket(point, color, mode) {
+        const renderer = drawingRendererRef.current
+        if (!renderer) throw new Error('The drawing renderer is not ready.')
+        return renderer.fillBucket(point, color, mode)
       },
       setDebugMode(enabled) {
         drawingRendererRef.current?.setDebugMode(enabled)

@@ -15,7 +15,7 @@
 
 .tool-type-selector > div {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 6px;
 }
 
@@ -33,7 +33,7 @@
   color: #a5b3c3;
   background: rgba(16, 21, 29, 0.36);
   cursor: pointer;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .tool-type-option:hover {

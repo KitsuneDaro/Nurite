@@ -53,6 +53,7 @@ Some brush and paint options are intentionally disabled in the UI while under de
 | `B` | Brush |
 | `E` | Eraser |
 | `S` | Eyedropper |
+| `G` | Bucket fill |
 | `L` / `J` | Increase / decrease brush size by 1 px |
 | `U` / `O` | Select previous / next palette color (wraps at either end) |
 | `1`–`9` | Select palette colors 1–9 |
@@ -104,7 +105,7 @@ src/
 - [`src/components/Canvas/ThreeCanvas/shaders/`](./src/components/Canvas/ThreeCanvas/shaders/) contains the brush coverage/distance, segment metadata, square brush, oil surface, and debug shader code. [`CanvasDrawingShader.ts`](./src/components/Canvas/ThreeCanvas/CanvasDrawingShader.ts) composes shader sources for the renderer.
 - [`src/components/Canvas/ThreeCanvas/CanvasConstants.ts`](./src/components/Canvas/ThreeCanvas/CanvasConstants.ts) defines the 1024 px canvas size and stroke segment limit.
 
-The renderer stores the canvas as five RGBA textures: metadata, color, and three drawing-state textures. See [`CanvasProjectFile.ts`](./src/components/Canvas/ThreeCanvas/CanvasProjectFile.ts) for the corresponding project texture names and [`CanvasDrawingRenderer.ts`](./src/components/Canvas/ThreeCanvas/CanvasDrawingRenderer.ts) for render-target use.
+The renderer stores the canvas as five RGBA textures: metadata, color, and three drawing-state textures. See [`CanvasProjectFile.ts`](./src/components/Canvas/ThreeCanvas/CanvasProjectFile.ts) for the corresponding project texture names and [`CanvasDrawingRenderer.ts`](./src/components/Canvas/ThreeCanvas/CanvasDrawingRenderer.ts) for render-target use. Bucket fill builds a connected-color or global stroke-ID mask from texture data, then uses a shader to apply the fill to all five history textures as one undoable action.
 
 ### Undo/redo
 
@@ -112,7 +113,7 @@ The renderer stores the canvas as five RGBA textures: metadata, color, and three
 
 ### Project files and browser storage
 
-[`src/components/Canvas/ThreeCanvas/CanvasProjectFile.ts`](./src/components/Canvas/ThreeCanvas/CanvasProjectFile.ts) defines the project manifest, validates project settings/textures, and serializes project data. The `.nrt` extension is a ZIP archive; the archive contains `project.json` and five files in `textures/`. The internal format identifier is `webpainter-project`, currently version `2`; version 1 projects are migrated on load to the signed centered coordinates used by drawing-state A.
+[`src/components/Canvas/ThreeCanvas/CanvasProjectFile.ts`](./src/components/Canvas/ThreeCanvas/CanvasProjectFile.ts) defines the project manifest, validates project settings/textures, and serializes project data. The `.nrt` extension is a ZIP archive; the archive contains `project.json` and five files in `textures/`. The internal format identifier is `webpainter-project`, currently version `3`; versions 1 and 2 receive default eraser-size and bucket-fill options, and version 1 also migrates the drawing-state A coordinates to the signed centered representation.
 
 [`src/utils/ZipArchive.ts`](./src/utils/ZipArchive.ts) implements ZIP reading/writing in the browser. Do not introduce server calls for project save/load unless the product requirements change.
 

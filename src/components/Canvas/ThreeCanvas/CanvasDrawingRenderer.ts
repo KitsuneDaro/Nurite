@@ -1,5 +1,10 @@
 import * as THREE from 'three'
-import type { BrushStrokeStyle, DrawingPoint, DrawingSegment } from '../../../types'
+import type {
+  BrushStrokeStyle,
+  BucketFillMode,
+  DrawingPoint,
+  DrawingSegment,
+} from '../../../types'
 import {
   brushColorFragmentShader,
   brushMetadataFragmentShader,
@@ -9,6 +14,7 @@ import {
   brushVertexShader,
   squareBrushStrokeCapFragmentShader,
 } from './CanvasDrawingShader'
+import { bucketFillFragmentShader, bucketFillVertexShader } from './shaders/BucketFillShader'
 import { exportCanvasImage } from './CanvasImageExport'
 import { CANVAS_SIZE, MAX_STROKE_SEGMENTS } from './CanvasConstants'
 import {
@@ -29,6 +35,7 @@ export { CANVAS_SIZE } from './CanvasConstants'
 export type { CanvasHistoryState } from './CanvasTextureHistory'
 
 const MAX_BRUSH_SIZE = 255
+const CANVAS_PIXEL_COUNT = CANVAS_SIZE * CANVAS_SIZE
 
 const PAINT_STYLE_IDS: Record<BrushStrokeStyle['paintType'], number> = {
   normal: 1,
@@ -67,6 +74,96 @@ function getMaximumStrokeId(metadata: Uint8Array) {
   return maximumStrokeId
 }
 
+function encodeStrokeMetadata(strokeId: number) {
+  return new THREE.Vector4(
+    strokeId % 256,
+    Math.floor(strokeId / 256) % 256,
+    Math.floor(strokeId / 65536) % 16,
+    0,
+  ).multiplyScalar(1 / 255)
+}
+
+function encodeColor(color: string) {
+  const linearColor = new THREE.Color(color)
+  return new THREE.Vector4(linearColor.r, linearColor.g, linearColor.b, 1)
+}
+
+function encodeDrawingStateA(x: number, y: number) {
+  const encodedX = Math.floor(Math.min(1023, Math.max(-1024, x - 512)) + 1024)
+  const encodedY = Math.floor(Math.min(1023, Math.max(-1024, y - 512)) + 1024)
+  const shapeId = 1
+  const paintStyleId = 1
+  const bytes = [
+    encodedX % 256,
+    Math.floor(encodedX / 256) + (encodedY % 32) * 8,
+    Math.floor(encodedY / 32) + (shapeId % 4) * 64,
+    Math.floor(shapeId / 4) + paintStyleId * 8,
+  ]
+  return new THREE.Vector4(...bytes.map((byte) => byte / 255))
+}
+
+function createBucketMask(
+  color: Uint8Array,
+  metadata: Uint8Array,
+  point: DrawingPoint,
+  mode: BucketFillMode,
+) {
+  const seedX = Math.floor(point.x)
+  const seedY = CANVAS_SIZE - 1 - Math.floor(point.y)
+  const seedPixel = seedY * CANVAS_SIZE + seedX
+  const seedOffset = seedPixel * 4
+  const mask = new Uint8Array(CANVAS_PIXEL_COUNT)
+
+  if (mode === 'stroke') {
+    const seedStrokeId = getStrokeId(metadata, seedOffset)
+    for (let pixel = 0; pixel < CANVAS_PIXEL_COUNT; pixel += 1) {
+      if (getStrokeId(metadata, pixel * 4) === seedStrokeId) mask[pixel] = 255
+    }
+    return mask
+  }
+
+  const seedRed = color[seedOffset] ?? 0
+  const seedGreen = color[seedOffset + 1] ?? 0
+  const seedBlue = color[seedOffset + 2] ?? 0
+  const matchesSeedColor = (pixel: number) => {
+    const offset = pixel * 4
+    return color[offset] === seedRed
+      && color[offset + 1] === seedGreen
+      && color[offset + 2] === seedBlue
+  }
+  if (!matchesSeedColor(seedPixel)) return null
+
+  const queue = new Uint32Array(CANVAS_PIXEL_COUNT)
+  let queueStart = 0
+  let queueEnd = 1
+  mask[seedPixel] = 255
+  queue[0] = seedPixel
+
+  while (queueStart < queueEnd) {
+    const pixel = queue[queueStart] ?? 0
+    queueStart += 1
+    const x = pixel % CANVAS_SIZE
+    const enqueue = (neighbor: number) => {
+      if (mask[neighbor] !== 0 || !matchesSeedColor(neighbor)) return
+      mask[neighbor] = 255
+      queue[queueEnd] = neighbor
+      queueEnd += 1
+    }
+    if (x > 0) enqueue(pixel - 1)
+    if (x < CANVAS_SIZE - 1) enqueue(pixel + 1)
+    if (pixel >= CANVAS_SIZE) enqueue(pixel - CANVAS_SIZE)
+    if (pixel + CANVAS_SIZE < CANVAS_PIXEL_COUNT) enqueue(pixel + CANVAS_SIZE)
+  }
+
+  return mask
+}
+
+function getStrokeId(metadata: Uint8Array, offset: number) {
+  return (metadata[offset] ?? 0)
+    + (metadata[offset + 1] ?? 0) * 0x100
+    + ((metadata[offset + 2] ?? 0) & 0x0F) * 0x10000
+}
+
 export class CanvasDrawingRenderer {
   private readonly renderer: THREE.WebGLRenderer
   private readonly canvasExportTarget: THREE.WebGLRenderTarget
@@ -82,6 +179,8 @@ export class CanvasDrawingRenderer {
   private readonly drawingStateMaterialC: THREE.ShaderMaterial
   private readonly overrideEdgeDistanceMaterial: THREE.ShaderMaterial
   private readonly squareStrokeCapMaterial: THREE.ShaderMaterial
+  private readonly bucketFillMaterial: THREE.ShaderMaterial
+  private readonly emptyBucketMaskTexture: THREE.DataTexture
   private readonly brushMesh: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>
   private readonly brushScene: THREE.Scene
   private readonly brushCamera: THREE.OrthographicCamera
@@ -257,6 +356,30 @@ export class CanvasDrawingRenderer {
       blendEquationAlpha: THREE.MaxEquation,
       blendSrcAlpha: THREE.OneFactor,
       blendDstAlpha: THREE.OneFactor,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+    })
+    const emptyMaskTexture = new THREE.DataTexture(
+      new Uint8Array([0]),
+      1,
+      1,
+      THREE.RedFormat,
+      THREE.UnsignedByteType,
+    )
+    emptyMaskTexture.minFilter = THREE.NearestFilter
+    emptyMaskTexture.magFilter = THREE.NearestFilter
+    emptyMaskTexture.colorSpace = THREE.NoColorSpace
+    emptyMaskTexture.needsUpdate = true
+    this.emptyBucketMaskTexture = emptyMaskTexture
+    this.bucketFillMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uMask: { value: emptyMaskTexture },
+        uValue: { value: new THREE.Vector4() },
+      },
+      vertexShader: bucketFillVertexShader,
+      fragmentShader: bucketFillFragmentShader,
       depthTest: false,
       depthWrite: false,
       side: THREE.DoubleSide,
@@ -503,6 +626,90 @@ export class CanvasDrawingRenderer {
     return processedSegmentCount
   }
 
+  fillBucket(point: DrawingPoint, color: string, mode: BucketFillMode) {
+    if (this.disposed) throw new Error('Cannot fill the canvas after the renderer is disposed.')
+    if (
+      !Number.isFinite(point.x)
+      || !Number.isFinite(point.y)
+      || point.x < 0
+      || point.y < 0
+      || point.x >= CANVAS_SIZE
+      || point.y >= CANVAS_SIZE
+    ) {
+      return this.history.getHistoryState()
+    }
+
+    const sourceColor = this.readTargetPixels(this.colorTarget)
+    const sourceMetadata = this.readTargetPixels(this.metadataTarget)
+    const maskData = createBucketMask(sourceColor, sourceMetadata, point, mode)
+    if (!maskData) return this.history.getHistoryState()
+
+    const strokeId = this.history.beginStroke()
+    if (strokeId === null) return this.history.getHistoryState()
+
+    const previousAutoClear = this.renderer.autoClear
+    this.renderer.autoClear = false
+    this.renderer.setViewport(0, 0, CANVAS_SIZE, CANVAS_SIZE)
+    this.renderer.setScissorTest(false)
+    let maskTexture: THREE.DataTexture | null = null
+    let strokeEnded = false
+    try {
+      maskTexture = new THREE.DataTexture(
+        maskData,
+        CANVAS_SIZE,
+        CANVAS_SIZE,
+        THREE.RedFormat,
+        THREE.UnsignedByteType,
+      )
+      maskTexture.minFilter = THREE.NearestFilter
+      maskTexture.magFilter = THREE.NearestFilter
+      maskTexture.generateMipmaps = false
+      maskTexture.colorSpace = THREE.NoColorSpace
+      maskTexture.needsUpdate = true
+      this.bucketFillMaterial.uniforms.uMask.value = maskTexture
+
+      const x = Math.floor(point.x)
+      const y = Math.floor(point.y)
+      const targets = this.history.currentTargets
+      const values = [
+        encodeStrokeMetadata(strokeId),
+        encodeColor(color),
+        encodeDrawingStateA(x, y),
+        new THREE.Vector4(128 / 255, 128 / 255, 128 / 255, 128 / 255),
+        new THREE.Vector4(0, 0, 0, 0),
+      ]
+      for (let index = 0; index < targets.length; index += 1) {
+        const target = targets[index]
+        const value = values[index]
+        if (!target || !value) throw new Error('A bucket-fill render target is missing.')
+        this.bucketFillMaterial.uniforms.uValue.value.copy(value)
+        this.brushMesh.material = this.bucketFillMaterial
+        this.brushMesh.position.set(CANVAS_SIZE / 2, CANVAS_SIZE / 2, 0)
+        this.brushMesh.scale.set(CANVAS_SIZE, CANVAS_SIZE, 1)
+        this.renderer.setRenderTarget(target)
+        this.renderer.render(this.brushScene, this.brushCamera)
+      }
+      this.history.markDrawing(strokeId)
+      this.oilSurfaceMapsDirty = true
+      const state = this.history.endStroke()
+      strokeEnded = true
+      this.renderer.autoClear = previousAutoClear
+      this.renderer.setScissorTest(false)
+      this.renderer.setRenderTarget(null)
+      this.renderOutput()
+      return state
+    } catch (error) {
+      if (!strokeEnded) this.history.endStroke()
+      throw error
+    } finally {
+      this.renderer.autoClear = previousAutoClear
+      this.renderer.setScissorTest(false)
+      this.renderer.setRenderTarget(null)
+      maskTexture?.dispose()
+      this.bucketFillMaterial.uniforms.uMask.value = this.emptyBucketMaskTexture
+    }
+  }
+
   private renderFrame(
     segments: readonly DrawingSegment[],
     style: BrushStrokeStyle,
@@ -732,6 +939,8 @@ export class CanvasDrawingRenderer {
     this.drawingStateMaterialB.dispose()
     this.drawingStateMaterialC.dispose()
     this.squareStrokeCapMaterial.dispose()
+    this.emptyBucketMaskTexture.dispose()
+    this.bucketFillMaterial.dispose()
     this.canvasExportTarget.dispose()
     this.renderer.dispose()
     this.renderer.domElement.remove()

@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
-import type { BrushShape, BrushType, DrawingPoint, ToolType } from '../../../types'
+import type {
+  BrushShape,
+  BrushType,
+  BucketFillMode,
+  DrawingPoint,
+  ToolType,
+} from '../../../types'
 import type { RefObject } from 'react'
 import {
   ThreeCanvas,
@@ -18,6 +24,7 @@ type CanvasWorkspaceProps = {
   brushShape: BrushShape
   paintType: BrushType
   brushSize: number
+  bucketFillMode: BucketFillMode
   brushColor: string
   followDirection: boolean
   toolType: ToolType
@@ -55,6 +62,7 @@ export function CanvasWorkspace({
   brushShape,
   paintType,
   brushSize,
+  bucketFillMode,
   brushColor,
   followDirection,
   toolType,
@@ -80,12 +88,14 @@ export function CanvasWorkspace({
     brushColor,
     followDirection,
     eraserEnabled: toolType === 'eraser',
+    bucketFillMode,
     onHistoryChange,
   })
   const zoomRef = useRef(zoom)
   const offsetRef = useRef<Point>({ x: 0, y: 0 })
   const [offset, setOffset] = useState<Point>({ x: 0, y: 0 })
   const [renderStatus, setRenderStatus] = useState<CanvasRenderStatus>('loading')
+  const [bucketFillError, setBucketFillError] = useState<string | null>(null)
   useLayoutEffect(() => {
     zoomRef.current = zoom
   }, [zoom])
@@ -162,6 +172,17 @@ export function CanvasWorkspace({
       if (sampledColor) {
         onEyedropperPick(sampledColor)
         onToolTypeChange('brush')
+      }
+      return
+    }
+
+    if (toolType === 'bucket') {
+      try {
+        stroke.fillBucket(event.clientX, event.clientY, brushColor)
+        setBucketFillError(null)
+      } catch (error) {
+        console.error('Failed to fill the canvas.', error)
+        setBucketFillError('塗りつぶしに失敗しました')
       }
       return
     }
@@ -254,6 +275,7 @@ export function CanvasWorkspace({
           {renderStatus === 'ready' && 'キャンバス準備完了'}
           {renderStatus === 'error' && <span role="alert">テクスチャを読み込めませんでした</span>}
         </span>
+        {bucketFillError && <span role="alert">{bucketFillError}</span>}
       </div>
     </section>
   )

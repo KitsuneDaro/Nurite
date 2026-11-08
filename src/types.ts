@@ -2,7 +2,8 @@ import type { LucideIcon } from 'lucide-react'
 
 export type BrushShape = 'round' | 'flat' | 'square';
 export type BrushType = 'normal' | 'oil' | 'watercolor';
-export type ToolType = 'brush' | 'eraser' | 'eyedropper';
+export type ToolType = 'brush' | 'eraser' | 'eyedropper' | 'bucket';
+export type BucketFillMode = 'color' | 'stroke';
 
 export type DrawingPoint = {
   x: number

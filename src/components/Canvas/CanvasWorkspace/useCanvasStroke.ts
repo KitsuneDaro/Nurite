@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 import type {
   BrushShape,
   BrushType,
+  BucketFillMode,
   BrushStrokeStyle,
   DrawingPoint,
   DrawingSegment,
@@ -22,6 +23,7 @@ type CanvasStrokeOptions = {
   brushColor: string
   followDirection: boolean
   eraserEnabled: boolean
+  bucketFillMode: BucketFillMode
   onHistoryChange: (history: CanvasHistoryState, contentChanged: boolean) => void
 }
 
@@ -34,6 +36,7 @@ export function useCanvasStroke({
   brushColor,
   followDirection,
   eraserEnabled,
+  bucketFillMode,
   onHistoryChange,
 }: CanvasStrokeOptions) {
   const activePointerRef = useRef<number | null>(null)
@@ -265,6 +268,21 @@ export function useCanvasStroke({
     return drawingRef.current?.sampleColor(canvasPoint.point) ?? null
   }, [drawingRef, getCanvasPoint])
 
+  const fillBucket = useCallback((
+    clientX: number,
+    clientY: number,
+    color: string,
+  ) => {
+    const canvasPoint = getCanvasPoint(clientX, clientY)
+    if (!canvasPoint?.inside) return
+    const history = drawingRef.current?.fillBucket(
+      canvasPoint.point,
+      color,
+      bucketFillMode,
+    )
+    if (history) onHistoryChange(history, true)
+  }, [bucketFillMode, drawingRef, getCanvasPoint, onHistoryChange])
+
   const startStroke = useCallback((pointerId: number, clientX: number, clientY: number) => {
     const canvasPoint = getCanvasPoint(clientX, clientY)
     if (!canvasPoint?.inside) return
@@ -320,5 +338,5 @@ export function useCanvasStroke({
     }
   }, [endStroke])
 
-  return { startStroke, addStrokePoint, endStroke, cancelStroke, pickColor }
+  return { startStroke, addStrokePoint, endStroke, cancelStroke, pickColor, fillBucket }
 }

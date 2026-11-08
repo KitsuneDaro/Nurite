@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { HslColor } from 'react-colorful'
-import type { BrushShape, BrushType, ToolType } from './types'
+import type { BrushShape, BrushType, BucketFillMode, ToolType } from './types'
 import type { CanvasDrawingHandle } from './components/Canvas/ThreeCanvas/ThreeCanvas'
 import type { CanvasHistoryState } from './components/Canvas/ThreeCanvas/CanvasDrawingRenderer'
 import { CanvasWorkspace } from './components/Canvas/CanvasWorkspace/CanvasWorkspace'
@@ -51,6 +51,8 @@ function App() {
   const [paintType, setPaintType] = useState<BrushType>('normal')
   const [followDirection, setFollowDirection] = useState(false)
   const [brushSize, setBrushSize] = useState(30)
+  const [eraserSize, setEraserSize] = useState(30)
+  const [bucketFillMode, setBucketFillMode] = useState<BucketFillMode>('color')
   const [toolType, setToolType] = useState<ToolType>('brush')
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobilePanel>(null)
   const [canvasZoom, setCanvasZoom] = useState(1)
@@ -137,6 +139,8 @@ function App() {
       setPaintType('normal')
       setFollowDirection(false)
       setBrushSize(30)
+      setEraserSize(30)
+      setBucketFillMode('color')
       setToolType('brush')
       resetPalette()
       setColor(hexToHsl(usePaletteStore.getState().colors[9]!))
@@ -192,6 +196,8 @@ function App() {
           paintType,
           followDirection,
           brushSize,
+          eraserSize,
+          bucketFillMode,
           toolType,
           color: hslToHex(color),
           paletteColors: [...paletteColors],
@@ -221,6 +227,8 @@ function App() {
       setPaintType(project.settings.paintType)
       setFollowDirection(project.settings.followDirection)
       setBrushSize(project.settings.brushSize)
+      setEraserSize(project.settings.eraserSize)
+      setBucketFillMode(project.settings.bucketFillMode)
       setToolType(project.settings.toolType)
       setColor(hexToHsl(project.settings.color))
       usePaletteStore.setState({
@@ -282,9 +290,11 @@ function App() {
   }
 
   function changeBrushSize(delta: number) {
-    const nextSize = Math.min(255, Math.max(1, brushSize + delta))
-    if (nextSize === brushSize) return
-    setBrushSize(nextSize)
+    const currentSize = toolType === 'eraser' ? eraserSize : brushSize
+    const nextSize = Math.min(255, Math.max(1, currentSize + delta))
+    if (nextSize === currentSize) return
+    if (toolType === 'eraser') setEraserSize(nextSize)
+    else setBrushSize(nextSize)
     setIsProjectDirty(true)
   }
 
@@ -378,6 +388,7 @@ function App() {
       if (key === 'b') actions.setToolType('brush')
       else if (key === 'e') actions.setToolType('eraser')
       else if (key === 's') actions.setToolType('eyedropper')
+      else if (key === 'g') actions.setToolType('bucket')
       else if (key === 'l') actions.changeBrushSize(1)
       else if (key === 'j') actions.changeBrushSize(-1)
     }
@@ -420,11 +431,17 @@ function App() {
           brushShape={brushShape}
           paintType={paintType}
           toolType={toolType}
+          brushSize={brushSize}
+          eraserSize={eraserSize}
+          bucketFillMode={bucketFillMode}
           followDirection={followDirection}
           onBrushShapeChange={(shape) => { setBrushShape(shape); setIsProjectDirty(true) }}
           onPaintTypeChange={(type) => { setPaintType(type); setIsProjectDirty(true) }}
           onToolTypeChange={updateToolType}
           onFollowDirectionChange={(follow) => { setFollowDirection(follow); setIsProjectDirty(true) }}
+          onBrushSizeChange={(size) => { setBrushSize(size); setIsProjectDirty(true) }}
+          onEraserSizeChange={(size) => { setEraserSize(size); setIsProjectDirty(true) }}
+          onBucketFillModeChange={(mode) => { setBucketFillMode(mode); setIsProjectDirty(true) }}
         />
         <CanvasToolbar
           zoom={canvasZoom}
@@ -443,7 +460,8 @@ function App() {
           onZoomChange={setCanvasZoom}
           brushShape={brushShape}
           paintType={paintType}
-          brushSize={brushSize}
+          brushSize={toolType === 'eraser' ? eraserSize : brushSize}
+          bucketFillMode={bucketFillMode}
           brushColor={hslToHex(color)}
           followDirection={followDirection}
           toolType={toolType}
@@ -461,13 +479,11 @@ function App() {
           currentHex={hslToHex(color)}
           paletteColors={paletteColors}
           selectedPalette={selectedPalette}
-          brushSize={brushSize}
           onColorChange={updateColor}
           onPaletteSelect={choosePalette}
           onPaletteAdd={addCurrentColorToPalette}
           onPaletteRemove={removeCurrentPaletteColor}
           onPaletteMove={movePaletteEntry}
-          onBrushSizeChange={(size) => { setBrushSize(size); setIsProjectDirty(true) }}
         />
       </main>
 

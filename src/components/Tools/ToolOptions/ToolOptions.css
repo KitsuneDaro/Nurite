@@ -1,0 +1,50 @@
+.tool-options {
+  margin-top: 2px;
+}
+
+.tool-options h3 {
+  margin: 0 0 10px;
+  color: #8492a4;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.tool-options .brush-size-section {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+.bucket-fill-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.bucket-fill-options button {
+  min-height: 38px;
+  padding: 5px;
+  border: 1px solid #303947;
+  border-radius: 7px;
+  color: #a5b3c3;
+  background: rgba(16, 21, 29, 0.36);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.bucket-fill-options button:hover {
+  color: #e4edf7;
+  background: #252e3b;
+}
+
+.bucket-fill-options button.selected {
+  border-color: #4a93bf;
+  color: #b3def6;
+  background: rgba(50, 93, 120, 0.27);
+}
+
+.tool-options-empty {
+  margin: 0;
+  color: #788699;
+  font-size: 10px;
+}

@@ -40,8 +40,7 @@
     column-gap: 12px;
   }
 
-  .color-panel .color-heading,
-  .color-panel .brush-size-section {
+  .color-panel .color-heading {
     grid-column: 1 / -1;
   }
 

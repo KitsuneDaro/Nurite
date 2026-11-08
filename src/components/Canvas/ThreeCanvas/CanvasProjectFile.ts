@@ -1,4 +1,4 @@
-import type { BrushShape, BrushType, ToolType } from '../../../types'
+import type { BrushShape, BrushType, BucketFillMode, ToolType } from '../../../types'
 import { CANVAS_SIZE } from './CanvasConstants'
 import type { ArchiveEntry } from '../../../utils/ZipArchive'
 import { createZipArchive, downloadBlob, readZipArchive } from '../../../utils/ZipArchive'
@@ -9,6 +9,8 @@ export type CanvasProjectSettings = {
   paintType: BrushType
   followDirection: boolean
   brushSize: number
+  eraserSize: number
+  bucketFillMode: BucketFillMode
   toolType: ToolType
   color: string
   paletteColors: string[]
@@ -30,7 +32,7 @@ export type CanvasProject = {
 }
 
 const FORMAT_ID = 'webpainter-project'
-const FORMAT_VERSION = 2
+const FORMAT_VERSION = 3
 const TEXTURE_BYTE_LENGTH = CANVAS_SIZE * CANVAS_SIZE * 4
 const TEXTURE_FILES = {
   metadata: 'textures/metadata.bin',
@@ -121,7 +123,7 @@ function validateManifest(value: unknown, fallbackName: string) {
   if (
     !isRecord(value)
     || value.format !== FORMAT_ID
-    || (value.version !== 1 && value.version !== FORMAT_VERSION)
+    || (value.version !== 1 && value.version !== 2 && value.version !== FORMAT_VERSION)
   ) {
     throw new Error('This ZIP is not a supported WebPainter project file.')
   }
@@ -136,6 +138,8 @@ function validateManifest(value: unknown, fallbackName: string) {
   }
 
   const { settings, textures } = value
+  const eraserSize = value.version === 3 ? settings.eraserSize : settings.brushSize
+  const bucketFillMode = value.version === 3 ? settings.bucketFillMode : 'color'
   const name = value.name === undefined ? fallbackName : value.name
   if (
     typeof name !== 'string'
@@ -149,6 +153,11 @@ function validateManifest(value: unknown, fallbackName: string) {
     || !Number.isFinite(settings.brushSize)
     || settings.brushSize < 1
     || settings.brushSize > 255
+    || typeof eraserSize !== 'number'
+    || !Number.isFinite(eraserSize)
+    || eraserSize < 1
+    || eraserSize > 255
+    || !isBucketFillMode(bucketFillMode)
     || !isHexColor(settings.color)
     || !Array.isArray(settings.paletteColors)
     || settings.paletteColors.length < 1
@@ -183,6 +192,8 @@ function validateManifest(value: unknown, fallbackName: string) {
       paintType: settings.paintType,
       followDirection: settings.followDirection,
       brushSize: settings.brushSize,
+      eraserSize,
+      bucketFillMode,
       toolType: settings.toolType,
       color: settings.color,
       paletteColors: [...settings.paletteColors],
@@ -229,7 +240,14 @@ function isBrushType(value: unknown): value is BrushType {
 }
 
 function isToolType(value: unknown): value is ToolType {
-  return value === 'brush' || value === 'eraser' || value === 'eyedropper'
+  return value === 'brush'
+    || value === 'eraser'
+    || value === 'eyedropper'
+    || value === 'bucket'
+}
+
+function isBucketFillMode(value: unknown): value is BucketFillMode {
+  return value === 'color' || value === 'stroke'
 }
 
 function isHexColor(value: unknown): value is string {

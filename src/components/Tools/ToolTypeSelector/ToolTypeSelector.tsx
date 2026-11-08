@@ -1,4 +1,4 @@
-import { Brush, Eraser, Pipette } from 'lucide-react'
+import { Brush, Eraser, Pipette, PaintBucket } from 'lucide-react'
 import type { ToolType } from '../../../types'
 import './ToolTypeSelector.css'
 
@@ -6,6 +6,7 @@ const toolOptions = [
   { id: 'brush', label: '筆', Icon: Brush },
   { id: 'eraser', label: '消しゴム', Icon: Eraser },
   { id: 'eyedropper', label: 'スポイト', Icon: Pipette },
+  { id: 'bucket', label: 'バケツ', Icon: PaintBucket },
 ] as const satisfies readonly {
   id: ToolType
   label: string
