@@ -388,7 +388,7 @@ function App() {
       if (key === 'b') actions.setToolType('brush')
       else if (key === 'e') actions.setToolType('eraser')
       else if (key === 's') actions.setToolType('eyedropper')
-      else if (key === 'g') actions.setToolType('bucket')
+      else if (key === 'g' || key === 'f') actions.setToolType('bucket')
       else if (key === 'l') actions.changeBrushSize(1)
       else if (key === 'j') actions.changeBrushSize(-1)
     }
