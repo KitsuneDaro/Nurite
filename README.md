@@ -44,6 +44,7 @@ Some brush and paint options are intentionally disabled in the UI while under de
 | --- | --- |
 | `Ctrl+S` / `Cmd+S` | Save project |
 | `Ctrl+L`, `Ctrl+O` / `Cmd+L`, `Cmd+O` | Open project |
+| `Ctrl+E` / `Cmd+E` | Export canvas image |
 | `Ctrl+N` / `Cmd+N` | Create a new canvas |
 | `Ctrl+D` / `Cmd+D` | Toggle texture debug mode |
 | `Ctrl+Z` / `Cmd+Z` | Undo |
@@ -52,6 +53,7 @@ Some brush and paint options are intentionally disabled in the UI while under de
 | `E` | Eraser |
 | `S` | Eyedropper |
 | `L` / `J` | Increase / decrease brush size by 1 px |
+| `U` / `O` while a palette swatch is focused | Select next / previous palette color (wraps at either end) |
 | `Tab` / `Shift+Tab` while navigating palette swatches | Focus and select the next / previous swatch |
 
 Single-letter shortcuts are disabled while typing in text fields. Project shortcuts retain their normal behavior, while text-field undo/redo remains under browser control. NEW and LOAD keep their unsaved-work confirmation.

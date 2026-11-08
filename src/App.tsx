@@ -24,6 +24,7 @@ import './App.css'
 
 type KeyboardShortcutActions = {
   saveProject: () => void
+  exportCanvas: () => void
   requestLoadProject: () => void
   requestNewCanvas: () => void
   toggleDebugMode: () => void
@@ -31,6 +32,7 @@ type KeyboardShortcutActions = {
   redoStroke: () => void
   setToolType: (toolType: ToolType) => void
   changeBrushSize: (delta: number) => void
+  movePaletteSelection: (delta: number) => void
 }
 
 function App() {
@@ -241,6 +243,7 @@ function App() {
   }
 
   async function exportCanvas() {
+    if (exportingCanvas) return
     if (!drawingRef.current) {
       setCanvasExportStatus('キャンバスの準備ができていません')
       return
@@ -284,9 +287,17 @@ function App() {
     setIsProjectDirty(true)
   }
 
+  function movePaletteSelection(delta: number) {
+    const { colors, selectedIndex } = usePaletteStore.getState()
+    if (colors.length === 0) return
+    const nextIndex = (selectedIndex + delta + colors.length) % colors.length
+    choosePalette(colors[nextIndex]!, nextIndex)
+  }
+
   useEffect(() => {
     keyboardShortcutsRef.current = {
       saveProject: () => { void saveProject() },
+      exportCanvas: () => { void exportCanvas() },
       requestLoadProject,
       requestNewCanvas,
       toggleDebugMode: () => setDebugMode((enabled) => !enabled),
@@ -294,6 +305,7 @@ function App() {
       redoStroke,
       setToolType: updateToolType,
       changeBrushSize,
+      movePaletteSelection,
     }
   })
 
@@ -309,6 +321,8 @@ function App() {
         target.isContentEditable
         || target.matches('input:not([type="range"]), textarea, select, [role="textbox"]')
       )
+      const isPaletteSwatchFocused = target instanceof HTMLElement
+        && target.matches('.palette-grid .palette-swatch')
 
       if (modifierPressed) {
         if (key === 's') {
@@ -323,6 +337,9 @@ function App() {
         } else if (key === 'd') {
           event.preventDefault()
           actions.toggleDebugMode()
+        } else if (key === 'e') {
+          event.preventDefault()
+          actions.exportCanvas()
         } else if (!isEditingText && key === 'z' && event.shiftKey) {
           event.preventDefault()
           actions.redoStroke()
@@ -336,7 +353,17 @@ function App() {
         return
       }
 
-      if (isEditingText || event.shiftKey) return
+      if (isEditingText || event.shiftKey || event.metaKey || event.ctrlKey) return
+      if (isPaletteSwatchFocused && key === 'u') {
+        event.preventDefault()
+        actions.movePaletteSelection(1)
+        return
+      }
+      if (isPaletteSwatchFocused && key === 'o') {
+        event.preventDefault()
+        actions.movePaletteSelection(-1)
+        return
+      }
       if (key === 'b') actions.setToolType('brush')
       else if (key === 'e') actions.setToolType('eraser')
       else if (key === 's') actions.setToolType('eyedropper')
