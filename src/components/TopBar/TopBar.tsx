@@ -5,7 +5,7 @@ import {
   Save,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import nuritaIcon from '../../assets/nurita.svg?no-inline'
+import nuriteIcon from '../../assets/nurite.svg?no-inline'
 import './TopBar.css'
 
 type TopBarProps = {
@@ -38,7 +38,7 @@ export function TopBar({
   return (
     <header className="topbar">
       <a className="brand" href="#" aria-label="Nurite ホーム">
-        <img className="brand-mark" src={nuritaIcon} alt="" />
+        <img className="brand-mark" src={nuriteIcon} alt="" />
         <span>Nurite</span>
       </a>
       <div className="document-title">
