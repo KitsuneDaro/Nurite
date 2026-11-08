@@ -321,9 +321,6 @@ function App() {
         target.isContentEditable
         || target.matches('input:not([type="range"]), textarea, select, [role="textbox"]')
       )
-      const isPaletteSwatchFocused = target instanceof HTMLElement
-        && target.matches('.palette-grid .palette-swatch')
-
       if (modifierPressed) {
         if (key === 's') {
           event.preventDefault()
@@ -353,17 +350,18 @@ function App() {
         return
       }
 
-      if (isEditingText || event.shiftKey || event.metaKey || event.ctrlKey) return
-      if (isPaletteSwatchFocused && key === 'u') {
-        event.preventDefault()
-        actions.movePaletteSelection(1)
-        return
-      }
-      if (isPaletteSwatchFocused && key === 'o') {
+      if (isEditingText || event.metaKey || event.ctrlKey) return
+      if (key === 'u') {
         event.preventDefault()
         actions.movePaletteSelection(-1)
         return
       }
+      if (key === 'o') {
+        event.preventDefault()
+        actions.movePaletteSelection(1)
+        return
+      }
+      if (event.shiftKey) return
       if (key === 'b') actions.setToolType('brush')
       else if (key === 'e') actions.setToolType('eraser')
       else if (key === 's') actions.setToolType('eyedropper')
