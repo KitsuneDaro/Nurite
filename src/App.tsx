@@ -31,6 +31,7 @@ type KeyboardShortcutActions = {
   undoStroke: () => void
   redoStroke: () => void
   setToolType: (toolType: ToolType) => void
+  toggleEraser: () => void
   changeBrushSize: (delta: number) => void
   movePaletteSelection: (delta: number) => void
   selectPaletteIndex: (index: number) => void
@@ -321,6 +322,9 @@ function App() {
       undoStroke,
       redoStroke,
       setToolType: updateToolType,
+      toggleEraser: () => {
+        updateToolType(toolType === 'eraser' ? 'brush' : 'eraser')
+      },
       changeBrushSize,
       movePaletteSelection,
       selectPaletteIndex,
@@ -386,10 +390,7 @@ function App() {
       }
       if (event.shiftKey) return
       if (key === 'b') actions.setToolType('brush')
-      else if (key === 'e') {
-        if (toolType === 'eraser') actions.setToolType('brush')
-        else actions.setToolType('eraser')
-      }
+      else if (key === 'e') actions.toggleEraser()
       else if (key === 's') actions.setToolType('eyedropper')
       else if (key === 'g' || key === 'f') actions.setToolType('bucket')
       else if (key === 'l') actions.changeBrushSize(1)
