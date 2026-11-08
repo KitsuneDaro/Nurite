@@ -81,6 +81,7 @@ export function ColorPalette({
               setDraggingIndex(null)
               setDropTargetIndex(null)
             }}
+            onFocus={() => onSelect(hex, index)}
             onClick={() => onSelect(hex, index)}
             aria-label={`色 ${selectedPalette === index ? currentHex : hex}`}
             aria-pressed={selectedPalette === index}

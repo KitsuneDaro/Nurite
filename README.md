@@ -38,6 +38,24 @@ There is currently no test script. Run the build and lint commands after code ch
 
 Some brush and paint options are intentionally disabled in the UI while under development. The available options and labels are defined in [`src/constants/paint.ts`](./src/constants/paint.ts) and their enabled states are configured in [`src/components/Tools/ToolsPanel/ToolsPanel.tsx`](./src/components/Tools/ToolsPanel/ToolsPanel.tsx).
 
+## Keyboard shortcuts
+
+| Shortcut | Action |
+| --- | --- |
+| `Ctrl+S` / `Cmd+S` | Save project |
+| `Ctrl+L`, `Ctrl+O` / `Cmd+L`, `Cmd+O` | Open project |
+| `Ctrl+N` / `Cmd+N` | Create a new canvas |
+| `Ctrl+D` / `Cmd+D` | Toggle texture debug mode |
+| `Ctrl+Z` / `Cmd+Z` | Undo |
+| `Ctrl+Shift+Z`, `Ctrl+Y` / `Cmd+Shift+Z`, `Cmd+Y` | Redo |
+| `B` | Brush |
+| `E` | Eraser |
+| `S` | Eyedropper |
+| `L` / `J` | Increase / decrease brush size by 1 px |
+| `Tab` / `Shift+Tab` while navigating palette swatches | Focus and select the next / previous swatch |
+
+Single-letter shortcuts are disabled while typing in text fields. Project shortcuts retain their normal behavior, while text-field undo/redo remains under browser control. NEW and LOAD keep their unsaved-work confirmation.
+
 ## Project layout
 
 ```text

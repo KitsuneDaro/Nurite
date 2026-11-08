@@ -4,14 +4,14 @@ import {
   FolderOpen,
   Save,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import nuritaIcon from '../../assets/nurita.svg?no-inline'
 import './TopBar.css'
 
 type TopBarProps = {
-  onNewCanvas: () => void
+  onRequestNewCanvas: () => void
   onSaveProject: () => void
-  onLoadProject: (file: File) => void
+  onRequestLoadProject: () => void
   projectFileBusy: boolean
   projectFileStatus: { message: string; id: number } | null
   isProjectDirty: boolean
@@ -23,9 +23,9 @@ type TopBarProps = {
 }
 
 export function TopBar({
-  onNewCanvas,
+  onRequestNewCanvas,
   onSaveProject,
-  onLoadProject,
+  onRequestLoadProject,
   projectFileBusy,
   projectFileStatus,
   isProjectDirty,
@@ -35,8 +35,6 @@ export function TopBar({
   exportingCanvas,
   canvasExportStatus,
 }: TopBarProps) {
-  const projectFileInputRef = useRef<HTMLInputElement>(null)
-
   return (
     <header className="topbar">
       <a className="brand" href="#" aria-label="Nurite ホーム">
@@ -64,14 +62,7 @@ export function TopBar({
           className="topbar-button"
           aria-label="新しいキャンバスを作成"
           disabled={projectFileBusy}
-          onClick={() => {
-            if (
-              !isProjectDirty
-              || window.confirm('未保存の編集内容があります。破棄して新しいキャンバスを作成しますか？')
-            ) {
-              onNewCanvas()
-            }
-          }}
+          onClick={onRequestNewCanvas}
         >
           <FilePlus2 size={16} />
           <span>NEW</span>
@@ -89,30 +80,11 @@ export function TopBar({
           className="topbar-button"
           aria-label="編集ファイルを読み込み"
           disabled={projectFileBusy}
-          onClick={() => {
-            if (
-              !isProjectDirty
-              || window.confirm('未保存の編集内容があります。破棄してファイルを読み込みますか？')
-            ) {
-              projectFileInputRef.current?.click()
-            }
-          }}
+          onClick={onRequestLoadProject}
         >
           <FolderOpen size={16} />
           <span>LOAD</span>
         </button>
-        <input
-          ref={projectFileInputRef}
-          className="project-file-input"
-          type="file"
-          accept=".nrt"
-          aria-label="読み込む編集ファイル"
-          onChange={(event) => {
-            const file = event.currentTarget.files?.[0]
-            event.currentTarget.value = ''
-            if (file) onLoadProject(file)
-          }}
-        />
         <button
           className="export-button"
           aria-label="キャンバス画像をエクスポート"

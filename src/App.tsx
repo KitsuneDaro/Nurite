@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { HslColor } from 'react-colorful'
 import type { BrushShape, BrushType, ToolType } from './types'
 import type { CanvasDrawingHandle } from './components/Canvas/ThreeCanvas/ThreeCanvas'
@@ -21,6 +21,17 @@ import {
 import { hslToHex, hexToHsl } from './utils/color'
 import { createDefaultCanvasName } from './utils/canvasFileName'
 import './App.css'
+
+type KeyboardShortcutActions = {
+  saveProject: () => void
+  requestLoadProject: () => void
+  requestNewCanvas: () => void
+  toggleDebugMode: () => void
+  undoStroke: () => void
+  redoStroke: () => void
+  setToolType: (toolType: ToolType) => void
+  changeBrushSize: (delta: number) => void
+}
 
 function App() {
   const [canvasName, setCanvasName] = useState(createDefaultCanvasName)
@@ -47,7 +58,9 @@ function App() {
   const [exportingCanvas, setExportingCanvas] = useState(false)
   const [canvasExportStatus, setCanvasExportStatus] = useState<string | null>(null)
   const drawingRef = useRef<CanvasDrawingHandle>(null)
+  const projectFileInputRef = useRef<HTMLInputElement>(null)
   const projectFileStatusIdRef = useRef(0)
+  const keyboardShortcutsRef = useRef<KeyboardShortcutActions | null>(null)
   const paletteColors = usePaletteStore((state) => state.colors)
   const selectedPalette = usePaletteStore((state) => state.selectedIndex)
   const selectPaletteColor = usePaletteStore((state) => state.selectColor)
@@ -72,6 +85,7 @@ function App() {
   }
 
   function choosePalette(hex: string, index: number) {
+    if (usePaletteStore.getState().selectedIndex === index) return
     selectPaletteColor(index)
     setColor(hexToHsl(hex))
     setIsProjectDirty(true)
@@ -101,6 +115,7 @@ function App() {
   }
 
   function updateToolType(nextToolType: ToolType) {
+    if (toolType === nextToolType) return
     setToolType(nextToolType)
     setIsProjectDirty(true)
   }
@@ -135,7 +150,28 @@ function App() {
     }
   }
 
+  function requestNewCanvas() {
+    if (projectFileBusy) return
+    if (
+      !isProjectDirty
+      || window.confirm('未保存の編集内容があります。破棄して新しいキャンバスを作成しますか？')
+    ) {
+      createNewCanvas()
+    }
+  }
+
+  function requestLoadProject() {
+    if (projectFileBusy) return
+    if (
+      !isProjectDirty
+      || window.confirm('未保存の編集内容があります。破棄してファイルを読み込みますか？')
+    ) {
+      projectFileInputRef.current?.click()
+    }
+  }
+
   async function saveProject() {
+    if (projectFileBusy) return
     if (!drawingRef.current) {
       showProjectFileStatus('キャンバスの準備ができていません')
       return
@@ -241,12 +277,83 @@ function App() {
     }
   }
 
+  function changeBrushSize(delta: number) {
+    const nextSize = Math.min(255, Math.max(1, brushSize + delta))
+    if (nextSize === brushSize) return
+    setBrushSize(nextSize)
+    setIsProjectDirty(true)
+  }
+
+  useEffect(() => {
+    keyboardShortcutsRef.current = {
+      saveProject: () => { void saveProject() },
+      requestLoadProject,
+      requestNewCanvas,
+      toggleDebugMode: () => setDebugMode((enabled) => !enabled),
+      undoStroke,
+      redoStroke,
+      setToolType: updateToolType,
+      changeBrushSize,
+    }
+  })
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      const actions = keyboardShortcutsRef.current
+      if (!actions || event.altKey) return
+
+      const key = event.key.toLowerCase()
+      const modifierPressed = event.ctrlKey || event.metaKey
+      const target = event.target
+      const isEditingText = target instanceof HTMLElement && (
+        target.isContentEditable
+        || target.matches('input:not([type="range"]), textarea, select, [role="textbox"]')
+      )
+
+      if (modifierPressed) {
+        if (key === 's') {
+          event.preventDefault()
+          actions.saveProject()
+        } else if (key === 'l' || key === 'o') {
+          event.preventDefault()
+          actions.requestLoadProject()
+        } else if (key === 'n') {
+          event.preventDefault()
+          actions.requestNewCanvas()
+        } else if (key === 'd') {
+          event.preventDefault()
+          actions.toggleDebugMode()
+        } else if (!isEditingText && key === 'z' && event.shiftKey) {
+          event.preventDefault()
+          actions.redoStroke()
+        } else if (!isEditingText && key === 'z') {
+          event.preventDefault()
+          actions.undoStroke()
+        } else if (!isEditingText && key === 'y') {
+          event.preventDefault()
+          actions.redoStroke()
+        }
+        return
+      }
+
+      if (isEditingText || event.shiftKey) return
+      if (key === 'b') actions.setToolType('brush')
+      else if (key === 'e') actions.setToolType('eraser')
+      else if (key === 's') actions.setToolType('eyedropper')
+      else if (key === 'l') actions.changeBrushSize(1)
+      else if (key === 'j') actions.changeBrushSize(-1)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   return (
     <div className="app-shell">
       <TopBar
-        onNewCanvas={createNewCanvas}
+        onRequestNewCanvas={requestNewCanvas}
         onSaveProject={saveProject}
-        onLoadProject={loadProject}
+        onRequestLoadProject={requestLoadProject}
         projectFileBusy={projectFileBusy}
         projectFileStatus={projectFileStatus}
         isProjectDirty={isProjectDirty}
@@ -255,6 +362,18 @@ function App() {
         onExportCanvas={exportCanvas}
         exportingCanvas={exportingCanvas}
         canvasExportStatus={canvasExportStatus}
+      />
+      <input
+        ref={projectFileInputRef}
+        className="project-file-input"
+        type="file"
+        accept=".nrt"
+        aria-label="読み込む編集ファイル"
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0]
+          event.currentTarget.value = ''
+          if (file) void loadProject(file)
+        }}
       />
 
       <main className="workspace">
