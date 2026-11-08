@@ -1,0 +1,16 @@
+- ショートカット
+    - SAVE: Ctrl+S
+    - LOAD: Ctrl+L, Ctrl+O
+    - EXPORT: Ctrl+E
+    - NEW CANVAS: Ctrl+N
+    - Debugモード: Ctrl+D
+    - UNDO: Ctrl+Z
+    - REDO: Shift+Ctrl+Z, Ctrl+Y
+    - 筆：B
+    - 消しゴム：E
+    - スポイト：S
+    - ブラシサイズ増加：L
+    - UI選択右移動：Tab
+    - UI選択左移動：Shift+Tab
+    - カラーパレット色選択右移動：O
+    - カラーパレット色選択左移動：U

@@ -22,6 +22,7 @@ type CanvasWorkspaceProps = {
   followDirection: boolean
   toolType: ToolType
   onToolTypeChange: (toolType: ToolType) => void
+  onTemporaryToolTypeChange: (toolType: ToolType) => void
   onEyedropperPick: (color: string) => void
   debugMode: boolean
   debugField: TextureDebugField
@@ -58,6 +59,7 @@ export function CanvasWorkspace({
   followDirection,
   toolType,
   onToolTypeChange,
+  onTemporaryToolTypeChange,
   onEyedropperPick,
   debugMode,
   debugField,
@@ -68,6 +70,7 @@ export function CanvasWorkspace({
   const frameRef = useRef<HTMLDivElement>(null)
   const touchPointsRef = useRef(new Map<number, Point>())
   const pinchStateRef = useRef<PinchState | null>(null)
+  const rightClickPointerRef = useRef<number | null>(null)
   const stroke = useCanvasStroke({
     frameRef,
     drawingRef,
@@ -133,6 +136,14 @@ export function CanvasWorkspace({
   }, [])
 
   function handlePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType === 'mouse' && event.button === 2) {
+      event.preventDefault()
+      event.currentTarget.setPointerCapture(event.pointerId)
+      rightClickPointerRef.current = event.pointerId
+      onTemporaryToolTypeChange('eyedropper')
+      return
+    }
+
     if (event.pointerType === 'mouse' && event.button !== 0) return
 
     event.currentTarget.setPointerCapture(event.pointerId)
@@ -192,6 +203,16 @@ export function CanvasWorkspace({
   }
 
   function handlePointerEnd(event: ReactPointerEvent<HTMLDivElement>) {
+    if (rightClickPointerRef.current === event.pointerId) {
+      rightClickPointerRef.current = null
+      if (event.type === 'pointerup') {
+        const sampledColor = stroke.pickColor(event.clientX, event.clientY)
+        if (sampledColor) onEyedropperPick(sampledColor)
+      }
+      onTemporaryToolTypeChange('brush')
+      return
+    }
+
     touchPointsRef.current.delete(event.pointerId)
     pinchStateRef.current = null
     stroke.endStroke(event.pointerId)
@@ -208,6 +229,7 @@ export function CanvasWorkspace({
           onPointerUp={handlePointerEnd}
           onPointerCancel={handlePointerEnd}
           onLostPointerCapture={handlePointerEnd}
+          onContextMenu={(event) => event.preventDefault()}
         >
           <div
             ref={frameRef}

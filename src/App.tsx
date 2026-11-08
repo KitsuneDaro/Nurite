@@ -435,6 +435,7 @@ function App() {
           followDirection={followDirection}
           toolType={toolType}
           onToolTypeChange={updateToolType}
+          onTemporaryToolTypeChange={setToolType}
           onEyedropperPick={(hex) => updateColor(hexToHsl(hex))}
           debugMode={debugMode}
           debugField={debugField}

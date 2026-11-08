@@ -30,6 +30,7 @@ There is currently no test script. Run the build and lint commands after code ch
 ## Features
 
 - 1024 × 1024 paint canvas with round and flat brushes, normal and oil paint, eraser, and eyedropper.
+- Hold the right mouse button over the canvas to temporarily use the eyedropper; the color is sampled on release, and releasing outside the canvas leaves the color unchanged.
 - Brush size, brush direction following, color picker, editable color palette, and palette drag-and-drop ordering.
 - Undo/redo history, canvas zoom and touch pinch zoom.
 - Local `.nrt` project save/load and PNG export.
