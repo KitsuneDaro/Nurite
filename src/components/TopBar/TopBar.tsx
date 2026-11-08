@@ -5,7 +5,7 @@ import {
   Save,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import nuriteIcon from '../../assets/nurite.svg?no-inline'
+import nuriteIcon from '../../../public/nurite.svg?no-inline'
 import './TopBar.css'
 
 type TopBarProps = {
