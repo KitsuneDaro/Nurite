@@ -66,6 +66,15 @@ export function TopBar({
           ref={shortcutDialogRef}
           className="shortcuts-dialog"
           aria-labelledby="shortcuts-dialog-title"
+          onClick={(event) => {
+            if (event.target !== event.currentTarget) return
+            const bounds = event.currentTarget.getBoundingClientRect()
+            const clickedOutside = event.clientX < bounds.left
+              || event.clientX > bounds.right
+              || event.clientY < bounds.top
+              || event.clientY > bounds.bottom
+            if (clickedOutside) event.currentTarget.close()
+          }}
           onKeyDown={(event) => event.stopPropagation()}
         >
           <div className="shortcuts-dialog-header">
