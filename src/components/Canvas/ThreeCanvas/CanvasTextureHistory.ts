@@ -2,7 +2,7 @@ import * as THREE from 'three'
 import { CANVAS_SIZE } from './CanvasConstants'
 import type { PixelFormat, TextureDataType } from 'three'
 
-const UNDO_LIMIT = 5
+const UNDO_LIMIT = 20
 const HISTORY_SLOT_COUNT = UNDO_LIMIT + 1
 
 type RenderTargetSet = [
