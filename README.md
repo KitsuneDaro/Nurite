@@ -111,7 +111,7 @@ The renderer stores the canvas as five RGBA textures: metadata, color, and three
 
 ### Project files and browser storage
 
-[`src/components/Canvas/ThreeCanvas/CanvasProjectFile.ts`](./src/components/Canvas/ThreeCanvas/CanvasProjectFile.ts) defines the project manifest, validates project settings/textures, and serializes project data. The `.nrt` extension is a ZIP archive; the archive contains `project.json` and five files in `textures/`. The internal format identifier is currently `webpainter-project`, version `1`. Keep it stable for compatibility, or add explicit version migration when changing the format.
+[`src/components/Canvas/ThreeCanvas/CanvasProjectFile.ts`](./src/components/Canvas/ThreeCanvas/CanvasProjectFile.ts) defines the project manifest, validates project settings/textures, and serializes project data. The `.nrt` extension is a ZIP archive; the archive contains `project.json` and five files in `textures/`. The internal format identifier is `webpainter-project`, currently version `2`; version 1 projects are migrated on load to the signed centered coordinates used by drawing-state A.
 
 [`src/utils/ZipArchive.ts`](./src/utils/ZipArchive.ts) implements ZIP reading/writing in the browser. Do not introduce server calls for project save/load unless the product requirements change.
 

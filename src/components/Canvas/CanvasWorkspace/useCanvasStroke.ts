@@ -252,8 +252,8 @@ export function useCanvasStroke({
 
     return {
       point: {
-        x: Math.min(CANVAS_SIZE, Math.max(0, x)),
-        y: Math.min(CANVAS_SIZE, Math.max(0, y)),
+        x,
+        y,
       },
       inside: x >= 0 && x <= CANVAS_SIZE && y >= 0 && y <= CANVAS_SIZE,
     }

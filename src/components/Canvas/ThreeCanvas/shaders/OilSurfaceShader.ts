@@ -10,7 +10,7 @@ export const oilDepthFragmentShader = `
 
   void main() {
     vec4 stateA = texture2D(uDrawingStateA, vUv);
-    float paintStyleId = floor(stateA.a * 255.0 + 0.5) / 4.0;
+    float paintStyleId = floor(floor(stateA.a * 255.0 + 0.5) / 8.0);
     vec3 strokeData = texture2D(uDrawingStateC, vUv).rgb;
     float brushSize = strokeData.b * 255.0;
 

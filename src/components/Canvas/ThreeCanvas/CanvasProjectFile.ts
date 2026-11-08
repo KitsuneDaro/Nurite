@@ -30,7 +30,7 @@ export type CanvasProject = {
 }
 
 const FORMAT_ID = 'webpainter-project'
-const FORMAT_VERSION = 1
+const FORMAT_VERSION = 2
 const TEXTURE_BYTE_LENGTH = CANVAS_SIZE * CANVAS_SIZE * 4
 const TEXTURE_FILES = {
   metadata: 'textures/metadata.bin',
@@ -88,7 +88,10 @@ export async function readCanvasProject(file: File): Promise<CanvasProject> {
   } catch (error) {
     throw new Error('The project settings file is invalid JSON.', { cause: error })
   }
-  const project = validateManifest(manifest, getProjectNameFromFile(file.name))
+  const { version, ...project } = validateManifest(
+    manifest,
+    getProjectNameFromFile(file.name),
+  )
   const expectedPaths = new Set(['project.json', 'textures/', ...Object.values(TEXTURE_FILES)])
   for (const name of files.keys()) {
     if (!expectedPaths.has(name)) throw new Error(`The project contains an unexpected file: ${name}`)
@@ -108,11 +111,18 @@ export async function readCanvasProject(file: File): Promise<CanvasProject> {
     }
     textures[key as keyof CanvasProjectTextures] = data
   }
+  if (version === 1) {
+    textures.drawingStateA = migrateLegacyDrawingStateA(textures.drawingStateA)
+  }
   return { ...project, textures }
 }
 
 function validateManifest(value: unknown, fallbackName: string) {
-  if (!isRecord(value) || value.format !== FORMAT_ID || value.version !== FORMAT_VERSION) {
+  if (
+    !isRecord(value)
+    || value.format !== FORMAT_ID
+    || (value.version !== 1 && value.version !== FORMAT_VERSION)
+  ) {
     throw new Error('This ZIP is not a supported WebPainter project file.')
   }
   if (
@@ -166,6 +176,7 @@ function validateManifest(value: unknown, fallbackName: string) {
   }
 
   return {
+    version: value.version,
     name,
     settings: {
       brushShape: settings.brushShape,
@@ -178,6 +189,26 @@ function validateManifest(value: unknown, fallbackName: string) {
       selectedPalette: settings.selectedPalette,
     },
   }
+}
+
+function migrateLegacyDrawingStateA(data: Uint8Array) {
+  const migrated = new Uint8Array(data.length)
+  for (let offset = 0; offset < data.length; offset += 4) {
+    const byte0 = data[offset] ?? 0
+    const byte1 = data[offset + 1] ?? 0
+    const byte2 = data[offset + 2] ?? 0
+    const byte3 = data[offset + 3] ?? 0
+    const x = byte0 + (byte1 % 4) * 256 + 512
+    const y = Math.floor(byte1 / 4) + (byte2 % 16) * 64 + 512
+    const shapeId = Math.floor(byte2 / 16) + (byte3 % 4) * 16
+    const paintStyleId = Math.floor(byte3 / 4)
+
+    migrated[offset] = x % 256
+    migrated[offset + 1] = Math.floor(x / 256) + (y % 32) * 8
+    migrated[offset + 2] = Math.floor(y / 32) + (shapeId % 4) * 64
+    migrated[offset + 3] = Math.floor(shapeId / 4) + paintStyleId * 8
+  }
+  return migrated
 }
 
 function getProjectNameFromFile(fileName: string) {
